@@ -1,0 +1,19 @@
+{
+  "name": "viem_tutorial",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "tsc && node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@types/node": "^22.10.1",
+    "dotenv": "^16.4.6",
+    "typescript": "^5.7.2",
+    "viem": "^2.21.53"
+  }
+}
