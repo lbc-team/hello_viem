@@ -5,31 +5,10 @@ import { createPublicClient, http, formatEther, getContract } from 'viem';
 import { foundry } from 'viem/chains';
 import { useAccount, useConnect, useDisconnect, useChainId, useChains, useWalletClient } from 'wagmi';
 import { injected } from 'wagmi/connectors';
+import Counter_ABI from './contracts/Counter.json';
 
-// Counter 合约地址和 ABI
+// Counter 合约地址
 const COUNTER_ADDRESS = "0x7148E9A2d539A99a66f1bd591E4E20cA35a08eD5";
-const Counter_ABI = [
-  {
-    "inputs": [],
-    "name": "increment",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "number",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
-] as const;
 
 export default function Home() {
   const [balance, setBalance] = useState<string>('0');
