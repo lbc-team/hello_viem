@@ -8,20 +8,25 @@ import {
   parseGwei,
   publicActions,
 } from "viem";
-import { baseSepolia, foundry } from "viem/chains";
+import { foundry } from "viem/chains";
 import dotenv from "dotenv";
-import WETH_ABI from './abis/weth.json' with { type: 'json' };
+
+
+import Counter_ABI from './abis/Counter.json' with { type: 'json' };
+import ERC20_ABI from './abis/MyERC20.json' with { type: 'json' };
 import { privateKeyToAccount } from "viem/accounts";
 dotenv.config();
 
-const WETH_ADDRESS = "0x4200000000000000000000000000000000000006";
+const COUNTER_ADDRESS = "0x7148E9A2d539A99a66f1bd591E4E20cA35a08eD5";
+const ERC20_ADDRESS = "0x1d861C4Ae248f1b7dfE69931d9F8F8dd4c036a0b";
 
 const main = async () => {
   // 创建一个公共客户端
+
   const publicClient = createPublicClient({
-    chain: baseSepolia, // mainnet, ....
-    transport: http(),
-  });
+    chain: foundry,
+    transport: http(process.env.RPC_URL!),
+  }).extend(publicActions);
 
   const blockNumber = await publicClient.getBlockNumber();
   console.log(`The block number is ${blockNumber}`);
@@ -29,12 +34,10 @@ const main = async () => {
 
   // Get the balance of an address
   const tbalance = formatEther(await publicClient.getBalance({
-    address: "0x01BF49D75f2b73A2FDEFa7664AEF22C86c5Be3df",
+    address: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   }));
 
-  console.log(`The balance of 0x01BF49D75f2b73A2FDEFa7664AEF22C86c5Be3df is ${tbalance}`);
-
-
+  console.log(`The balance of 0xf39 is ${tbalance}`);
 
   // 创建一个钱包客户端
   const account = privateKeyToAccount(
@@ -51,7 +54,6 @@ const main = async () => {
   console.log(`The wallet address is ${address}`);
 
   // Send some Ether to another address
-  // https://viem.sh/docs/actions/wallet/sendTransaction#sendtransaction
   const hash1 = await walletClient.sendTransaction({
     account,
     to: "0x01BF49D75f2b73A2FDEFa7664AEF22C86c5Be3df",
@@ -73,49 +75,63 @@ const main = async () => {
 
   console.log(` 自定义 gas 和 nonce 的 transaction hash is ${hash2}`);
 
-  const contract = getContract({
-    address: WETH_ADDRESS,
-    abi: WETH_ABI,
+
+  const erc20Contract = getContract({
+    address: ERC20_ADDRESS,
+    abi: ERC20_ABI,
     client: {
       public: publicClient,
       wallet: walletClient,
     },
   });
 
-  // Execute the deposit transaction on the WETH smart contract
-  /* const hash = await contract.write.deposit([], {
-    value: parseEther("0.000001"),
+    // 读取合约 方法 1
+    const balance1 = formatEther(BigInt(await erc20Contract.read.balanceOf([
+      address.toString(),
+    ]) as string));
+    console.log(`方法 1 获取的余额是 ${address.toString()} is ${balance1}`);
+  
+    // 读取合约 方法 2
+    const balance = formatEther(
+      BigInt(
+        (await publicClient.readContract({
+          address: ERC20_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: "balanceOf",
+          args: [address.toString()],
+        })) as string
+      )
+    );
+    console.log(`方法 2 获取的余额是 ${address.toString()} is ${balance}`);
+
+  const counterContract = getContract({
+    address: COUNTER_ADDRESS,
+    abi: Counter_ABI,
+    client: {
+      public: publicClient,
+      wallet: walletClient,
+    },
   });
 
-  console.log(`The transaction hash is ${hash}`); */
+  // 写方法1
+  const hash = await counterContract.write.increment();
+  console.log(` 调用 increment 方法的 transaction hash is ${hash}`);
 
-  /* const hash = await client.writeContract({
-    address: WETH_ADDRESS,
-    abi: WETH_ABI,
-    functionName: 'deposit',
+  const number1 = await counterContract.read.number([]);
+  console.log(` 调用 number 方法的 number is ${number1}`);
+
+  // 写方法2
+  await walletClient.writeContract({
+    address: COUNTER_ADDRESS,
+    abi: Counter_ABI,
+    functionName: 'increment',
     args: [],
-    value: parseEther("0.000001")
   });
-  console.log(`The transaction hash is ${hash}`); */
+  
 
-  // 读取合约 方法 1
-  const balance1 = formatEther(BigInt(await contract.read.balanceOf([
-    address.toString(),
-  ]) as string));
-  console.log(`方法 1 获取的余额是 ${address.toString()} is ${balance1}`);
+  const number2 = await counterContract.read.number([]);
+  console.log(` 调用 number 方法的 number is ${number2}`);
 
-  // 读取合约 方法 2
-  const balance = formatEther(
-    BigInt(
-      (await publicClient.readContract({
-        address: WETH_ADDRESS,
-        abi: WETH_ABI,
-        functionName: "balanceOf",
-        args: [address.toString()],
-      })) as string
-    )
-  );
-  console.log(`方法 2 获取的余额是 ${address.toString()} is ${balance}`);
 };
 
 main();

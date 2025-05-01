@@ -4,7 +4,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "tsc && node dist/index.js"
+    "start": "tsc && node dist/index.js",
+    "weth": "tsc && node dist/weth.js"
   },
   "keywords": [],
   "author": "",
