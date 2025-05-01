@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createPublicClient, http, formatEther, getContract } from 'viem';
 import { foundry } from 'viem/chains';
-import { useAccount, useConnect, useDisconnect, useChainId, useChains, useWalletClient } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useChainId, useChains, useReadContract, useWriteContract } from 'wagmi';
 import { injected } from 'wagmi/connectors';
 import Counter_ABI from './contracts/Counter.json';
 
@@ -12,50 +12,36 @@ const COUNTER_ADDRESS = "0x7148E9A2d539A99a66f1bd591E4E20cA35a08eD5";
 
 export default function Home() {
   const [balance, setBalance] = useState<string>('0');
-  const [counterNumber, setCounterNumber] = useState<string>('0');
   const { address, isConnected } = useAccount();
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
   const chains = useChains();
   const currentChain = chains.find(chain => chain.id === chainId);
-  const { data: walletClient } = useWalletClient();
 
-  // 获取 Counter 合约的数值
-  const fetchCounterNumber = async () => {
-    if (!address) return;
-    
-    const publicClient = createPublicClient({
-      chain: foundry,
-      transport: http(),
-    });
+  // 使用 useReadContract 读取合约数据
+  const { data: counterNumber, refetch: refetchCounter } = useReadContract({
+    address: COUNTER_ADDRESS as `0x${string}`,
+    abi: Counter_ABI,
+    functionName: 'number',
+  });
 
-    const counterContract = getContract({
-      address: COUNTER_ADDRESS,
+  // 使用 useWriteContract 写入合约数据
+  const { 
+    writeContract,
+    isPending,
+    data: hash,
+    isSuccess,
+    isError,
+    error
+  } = useWriteContract();
+
+  const handleIncrement = () => {
+    writeContract({
+      address: COUNTER_ADDRESS as `0x${string}`,
       abi: Counter_ABI,
-      client: publicClient,
+      functionName: 'increment',
     });
-
-    const number = await counterContract.read.number();
-    setCounterNumber(number.toString());
-  };
-
-  // 调用 increment 函数
-  const handleIncrement = async () => {
-    if (!walletClient) return;
-    
-    try {
-      const hash = await walletClient.writeContract({
-        address: COUNTER_ADDRESS,
-        abi: Counter_ABI,
-        functionName: 'increment',
-      });
-      console.log('Transaction hash:', hash);
-      // 更新数值显示
-      fetchCounterNumber();
-    } catch (error) {
-      console.error('调用 increment 失败:', error);
-    }
   };
 
   useEffect(() => {
@@ -75,8 +61,14 @@ export default function Home() {
     };
 
     fetchBalance();
-    fetchCounterNumber();
   }, [address]);
+
+  // 监听交易完成状态
+  useEffect(() => {
+    if (isSuccess) {
+      refetchCounter();
+    }
+  }, [isSuccess, refetchCounter]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8">
@@ -108,13 +100,31 @@ export default function Home() {
             </div>
             <div className="text-center">
               <p className="text-gray-600">Counter 数值:</p>
-              <p className="font-mono">{counterNumber}</p>
+              <p className="font-mono">{counterNumber?.toString() || '0'}</p>
               <button
                 onClick={handleIncrement}
-                className="mt-2 w-full bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 transition-colors"
+                disabled={isPending}
+                className={`mt-2 w-full py-2 px-4 rounded transition-colors ${
+                  isPending 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-green-500 hover:bg-green-600 text-white'
+                }`}
               >
-                增加计数
+                {isPending ? '处理中...' : '增加计数'}
               </button>
+              {isPending && (
+                <p className="mt-2 text-gray-600">交易正在处理中...</p>
+              )}
+              {hash && (
+                <p className="mt-2 text-blue-500">
+                  交易哈希: {hash}
+                </p>
+              )}
+              {isError && (
+                <p className="mt-2 text-red-500">
+                  错误: {error?.message}
+                </p>
+              )}
             </div>
             <button
               onClick={() => disconnect()}
