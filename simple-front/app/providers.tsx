@@ -1,15 +1,14 @@
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { WagmiProvider } from 'wagmi';
-import { http } from 'viem';
-import { foundry } from 'viem/chains';
-import { createConfig } from 'wagmi';
+import { http, WagmiProvider, createConfig } from 'wagmi';
+import { foundry, optimism } from 'wagmi/chains';
 
 const config = createConfig({
-  chains: [foundry],
+  chains: [foundry, optimism],
   transports: {
     [foundry.id]: http(),
+    [optimism.id]: http(),
   },
 });
 

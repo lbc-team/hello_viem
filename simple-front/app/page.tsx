@@ -1,9 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createPublicClient, http, formatEther, getContract } from 'viem';
-import { foundry } from 'viem/chains';
-import { useAccount, useConnect, useDisconnect, useChainId, useChains, useReadContract, useWriteContract } from 'wagmi';
+import { 
+  useAccount, 
+  useConnect, 
+  useDisconnect, 
+  useChainId, 
+  useChains, 
+  useReadContract, 
+  useWriteContract,
+  useClient,
+  useBalance
+} from 'wagmi';
 import { injected } from 'wagmi/connectors';
 import Counter_ABI from './contracts/Counter.json';
 
@@ -11,13 +19,17 @@ import Counter_ABI from './contracts/Counter.json';
 const COUNTER_ADDRESS = "0x7148E9A2d539A99a66f1bd591E4E20cA35a08eD5";
 
 export default function Home() {
-  const [balance, setBalance] = useState<string>('0');
   const { address, isConnected } = useAccount();
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
   const chains = useChains();
   const currentChain = chains.find(chain => chain.id === chainId);
+
+  // 使用 useBalance 获取余额
+  const { data: balance } = useBalance({
+    address,
+  });
 
   // 使用 useReadContract 读取合约数据
   const { data: counterNumber, refetch: refetchCounter } = useReadContract({
@@ -43,25 +55,6 @@ export default function Home() {
       functionName: 'increment',
     });
   };
-
-  useEffect(() => {
-    const fetchBalance = async () => {
-      if (!address) return;
-      
-      const publicClient = createPublicClient({
-        chain: foundry,
-        transport: http(),
-      });
-
-      const balance = await publicClient.getBalance({
-        address: address,
-      });
-
-      setBalance(formatEther(balance));
-    };
-
-    fetchBalance();
-  }, [address]);
 
   // 监听交易完成状态
   useEffect(() => {
@@ -96,7 +89,9 @@ export default function Home() {
             </div>
             <div className="text-center">
               <p className="text-gray-600">余额:</p>
-              <p className="font-mono">{balance} ETH</p>
+              <p className="font-mono">
+                {balance?.formatted || '0'} {balance?.symbol}
+              </p>
             </div>
             <div className="text-center">
               <p className="text-gray-600">Counter 数值:</p>

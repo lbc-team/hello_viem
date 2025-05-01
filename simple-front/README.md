@@ -1,68 +1,115 @@
 # Simple Viem Demo
 
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+
 通过: `npx create-next-app@latest simple-front`
 
-这是一个使用 Viem 和 Wagmi 实现的简单 Web3 演示项目，展示了如何连接 MetaMask 钱包并显示钱包信息。
+这是一个使用 Viem 和 Wagmi 构建的简单以太坊应用示例。该应用展示了如何与智能合约进行交互，包括读取和写入操作。
 
 ## Wagmi 介绍
 
 Wagmi 是一个 React Hooks 库，用于以太坊开发。它提供了一系列简单易用的 hooks，帮助开发者轻松地与以太坊网络交互。Wagmi 基于 Viem 构建，提供了类型安全、模块化和可组合的 API。
 
-### 本项目使用的 Wagmi 功能
-
-1. **钱包连接管理**
-   - `useConnect`: 用于连接钱包
-   - `useDisconnect`: 用于断开钱包连接
-   - `useAccount`: 获取当前连接的钱包账户信息
-
-2. **网络信息**
-   - `useChainId`: 获取当前链的 ID
-   - `useChains`: 获取配置的链信息
-
-3. **合约交互**
-   - `useWalletClient`: 获取钱包客户端，用于发送交易和调用合约方法
-
-4. **Provider 配置**
-   - `WagmiProvider`: 提供全局配置和状态管理
-   - `createConfig`: 创建 Wagmi 配置，包括网络设置和传输层
 
 ## 功能特点
 
-- 连接 MetaMask 钱包
-- 显示钱包地址
+- 使用 Wagmi v2 进行钱包连接/断开
 - 显示当前网络信息（网络名称和 Chain ID）
-- 显示钱包 ETH 余额
-- 支持断开钱包连接
-- 调用 Counter 合约的 increment 方法
-- 显示 Counter 合约的当前数值
+- 使用 `useBalance` 自动获取和更新钱包 ETH 余额
+- 使用 `useReadContract` 读取智能合约数据
+- 使用 `useWriteContract` 写入智能合约数据
+- 实时显示交易状态和哈希
+- 自动更新合约数据
 
 ## 技术栈
 
-- Next.js
-- Viem
-- Wagmi
-- Tailwind CSS
-- TypeScript
+- [Next.js](https://nextjs.org/)
+- [Viem](https://viem.sh/)
+- [Wagmi](https://wagmi.sh/)
+- [Tailwind CSS](https://tailwindcss.com/)
 
-## 安装依赖
 
+
+
+## 主要功能实现
+
+### 1. 钱包连接
+
+使用 Wagmi 的 `useConnect` 和 `useDisconnect` hooks 管理钱包连接：
+
+```typescript
+const { address, isConnected } = useAccount();
+const { connect } = useConnect();
+const { disconnect } = useDisconnect();
+```
+
+### 2. 余额查询
+
+使用 `useBalance` hook 自动获取和更新钱包余额：
+
+```typescript
+const { data: balance } = useBalance({
+  address,
+});
+```
+
+### 3. 合约交互
+
+使用 `useReadContract` 和 `useWriteContract` hooks 进行合约交互：
+
+```typescript
+// 读取合约数据
+const { data: counterNumber, refetch: refetchCounter } = useReadContract({
+  address: COUNTER_ADDRESS as `0x${string}`,
+  abi: Counter_ABI,
+  functionName: 'number',
+});
+
+// 写入合约数据
+const { 
+  writeContract,
+  isPending,
+  data: hash,
+  isSuccess,
+  isError,
+  error
+} = useWriteContract();
+```
+
+### 4. 交易状态管理
+
+自动处理交易状态和更新：
+
+```typescript
+// 监听交易完成状态
+useEffect(() => {
+  if (isSuccess) {
+    refetchCounter();
+  }
+}, [isSuccess, refetchCounter]);
+```
+
+
+
+## 使用方法
+
+1. 克隆仓库
+2. 安装依赖：
 ```bash
 # 使用 pnpm 安装依赖
 pnpm install
 ```
-
-## 启动项目
-
+3. 启动开发服务器：
 ```bash
-# 开发模式
 pnpm dev
-
-# 构建生产版本
-pnpm build
-
-# 启动生产版本
-pnpm start
 ```
+
+4. 在浏览器中访问 `http://localhost:3000`
+```bash
+pnpm install
+```
+
 
 ## 项目结构
 
@@ -86,14 +133,11 @@ simple-front/
 
 ## 开发环境要求
 
-- Node.js 18.0.0 或更高版本
+- Node.js 22.0.0 或更高版本
 - pnpm 包管理器
 - MetaMask 钱包扩展
 - Foundry 本地开发环境（可选）
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-create by : `npx create-next-app@latest myapp`
 
 
 ## Getting Started
