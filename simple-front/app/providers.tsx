@@ -3,13 +3,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { http } from 'viem';
-import { mainnet } from 'viem/chains';
+import { foundry } from 'viem/chains';
 import { createConfig } from 'wagmi';
 
 const config = createConfig({
-  chains: [mainnet],
+  chains: [foundry],
   transports: {
-    [mainnet.id]: http(),
+    [foundry.id]: http(),
   },
 });
 
