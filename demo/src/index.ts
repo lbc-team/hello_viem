@@ -7,6 +7,7 @@ import {
   parseEther,
   parseGwei,
   publicActions,
+  parseEventLogs,
 } from "viem";
 import { foundry } from "viem/chains";
 import dotenv from "dotenv";
@@ -114,20 +115,28 @@ const main = async () => {
     // 等待交易被确认
     const receipt = await publicClient.waitForTransactionReceipt({ hash: tx });
     console.log(`交易状态: ${receipt.status === 'success' ? '成功' : '失败'}`);
-
-    console.log(receipt.logs);
-
-    // 从 receipt 中获取事件
-    const transferLogs = receipt.logs
-      .filter(log => log.address.toLowerCase() === ERC20_ADDRESS.toLowerCase());
+    // console.log(receipt.logs);
+    // 从 receipt 中解析事件
+    const transferLogs = await parseEventLogs({
+      abi: ERC20_ABI,
+      eventName: 'Transfer', 
+      logs: receipt.logs,
+    });
 
     // 打印转账事件详情
     for (const log of transferLogs) {
-      console.log('转账事件详情:');
-      console.log(`从: ${log.topics[1]}`);
-      console.log(`到: ${log.topics[2]}`);
-      console.log(`金额: ${formatEther(BigInt(log.data))}`);
+      const eventLog = log as unknown as { eventName: string; args: { from: string; to: string; value: bigint } };
+      if (eventLog.eventName === 'Transfer') {
+        console.log('转账事件详情:');
+        console.log(`从: ${eventLog.args.from}`);
+        console.log(`到: ${eventLog.args.to}`);
+        console.log(`金额: ${formatEther(eventLog.args.value)}`);
+      }
     }
+
+
+
+
 
   const counterContract = getContract({
     address: COUNTER_ADDRESS,
