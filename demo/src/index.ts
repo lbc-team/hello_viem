@@ -17,8 +17,8 @@ import ERC20_ABI from './abis/MyERC20.json' with { type: 'json' };
 import { privateKeyToAccount } from "viem/accounts";
 dotenv.config();
 
-const COUNTER_ADDRESS = "0x7148E9A2d539A99a66f1bd591E4E20cA35a08eD5";
-const ERC20_ADDRESS = "0x1d861C4Ae248f1b7dfE69931d9F8F8dd4c036a0b";
+const COUNTER_ADDRESS = "0x610178dA211FEF7D417bC0e6FeD39F05609AD788";
+const ERC20_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 
 const main = async () => {
   // 创建一个公共客户端
@@ -104,6 +104,31 @@ const main = async () => {
     );
     console.log(`方法 2 获取的余额是 ${address.toString()} is ${balance}`);
 
+
+    const tx = await erc20Contract.write.transfer([
+      "0x01BF49D75f2b73A2FDEFa7664AEF22C86c5Be3df",
+      parseEther("1"),
+    ]);
+    console.log(` 调用 transfer 方法的 transaction hash is ${tx}`);
+
+    // 等待交易被确认
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: tx });
+    console.log(`交易状态: ${receipt.status === 'success' ? '成功' : '失败'}`);
+
+    console.log(receipt.logs);
+
+    // 从 receipt 中获取事件
+    const transferLogs = receipt.logs
+      .filter(log => log.address.toLowerCase() === ERC20_ADDRESS.toLowerCase());
+
+    // 打印转账事件详情
+    for (const log of transferLogs) {
+      console.log('转账事件详情:');
+      console.log(`从: ${log.topics[1]}`);
+      console.log(`到: ${log.topics[2]}`);
+      console.log(`金额: ${formatEther(BigInt(log.data))}`);
+    }
+
   const counterContract = getContract({
     address: COUNTER_ADDRESS,
     abi: Counter_ABI,
@@ -116,6 +141,8 @@ const main = async () => {
   // 写方法1
   const hash = await counterContract.write.increment();
   console.log(` 调用 increment 方法的 transaction hash is ${hash}`);
+
+
 
   const number1 = await counterContract.read.number([]);
   console.log(` 调用 number 方法的 number is ${number1}`);

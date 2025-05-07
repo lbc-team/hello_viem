@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Simple Viem & Wagmi Demo",
-  description: "A simple demo of Viem and Wagmi integration",
+  title: "Simple Wagmi Demo",
+  description: "A simple demo of Wagmi integration",
 };
 
 export default function RootLayout({

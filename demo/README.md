@@ -18,4 +18,4 @@ nvm use 22
 
 运行 `pnpm i` 安装依赖
 
-运行脚本： `npm run start`
+运行脚本： `npm run index` 或 `pnpm index`

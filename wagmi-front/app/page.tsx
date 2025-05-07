@@ -65,7 +65,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8">
-      <h1 className="text-3xl font-bold mb-8">Simple Viem Demo</h1>
+      <h1 className="text-3xl font-bold mb-8">Simple Wagmi Demo</h1>
       
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
         {!isConnected ? (
