@@ -106,38 +106,6 @@ const main = async () => {
     console.log(`方法 2 获取的余额是 ${address.toString()} is ${balance}`);
 
 
-    const tx = await erc20Contract.write.transfer([
-      "0x01BF49D75f2b73A2FDEFa7664AEF22C86c5Be3df",
-      parseEther("1"),
-    ]);
-    console.log(` 调用 transfer 方法的 transaction hash is ${tx}`);
-
-    // 等待交易被确认
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: tx });
-    console.log(`交易状态: ${receipt.status === 'success' ? '成功' : '失败'}`);
-    // console.log(receipt.logs);
-    // 从 receipt 中解析事件
-    const transferLogs = await parseEventLogs({
-      abi: ERC20_ABI,
-      eventName: 'Transfer', 
-      logs: receipt.logs,
-    });
-
-    // 打印转账事件详情
-    for (const log of transferLogs) {
-      const eventLog = log as unknown as { eventName: string; args: { from: string; to: string; value: bigint } };
-      if (eventLog.eventName === 'Transfer') {
-        console.log('转账事件详情:');
-        console.log(`从: ${eventLog.args.from}`);
-        console.log(`到: ${eventLog.args.to}`);
-        console.log(`金额: ${formatEther(eventLog.args.value)}`);
-      }
-    }
-
-
-
-
-
   const counterContract = getContract({
     address: COUNTER_ADDRESS,
     abi: Counter_ABI,
@@ -150,8 +118,6 @@ const main = async () => {
   // 写方法1
   const hash = await counterContract.write.increment();
   console.log(` 调用 increment 方法的 transaction hash is ${hash}`);
-
-
 
   const number1 = await counterContract.read.number([]);
   console.log(` 调用 number 方法的 number is ${number1}`);
@@ -167,6 +133,34 @@ const main = async () => {
 
   const number2 = await counterContract.read.number([]);
   console.log(` 调用 number 方法的 number is ${number2}`);
+
+  const tx = await erc20Contract.write.transfer([
+    "0x01BF49D75f2b73A2FDEFa7664AEF22C86c5Be3df",
+    parseEther("1"),
+  ]);
+  console.log(` 调用 transfer 方法的 transaction hash is ${tx}`);
+
+  // 等待交易被确认
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: tx });
+  console.log(`交易状态: ${receipt.status === 'success' ? '成功' : '失败'}`);
+  // console.log(receipt.logs);
+  // 从 receipt 中解析事件
+  const transferLogs = await parseEventLogs({
+    abi: ERC20_ABI,
+    eventName: 'Transfer', 
+    logs: receipt.logs,
+  });
+
+  // 打印转账事件详情
+  for (const log of transferLogs) {
+    const eventLog = log as unknown as { eventName: string; args: { from: string; to: string; value: bigint } };
+    if (eventLog.eventName === 'Transfer') {
+      console.log('转账事件详情:');
+      console.log(`从: ${eventLog.args.from}`);
+      console.log(`到: ${eventLog.args.to}`);
+      console.log(`金额: ${formatEther(eventLog.args.value)}`);
+    }
+  }
 
 };
 
