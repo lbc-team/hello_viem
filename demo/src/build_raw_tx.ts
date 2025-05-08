@@ -1,30 +1,30 @@
-import { createWalletClient, http, parseEther, parseGwei } from 'viem'
+import { createWalletClient, http, parseEther, parseGwei, type Hash, type TransactionReceipt } from 'viem'
 import { prepareTransactionRequest } from 'viem/actions'
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
-import { createPublicClient } from 'viem'
+import { createPublicClient, type PublicClient, type WalletClient } from 'viem'
 import dotenv from 'dotenv'
 
 dotenv.config()
 
-async function sendTransactionExample() {
+async function sendTransactionExample(): Promise<Hash> {
   try {
     // const privateKey = generatePrivateKey()
+
     // 1. 从环境变量获取私钥
-    const privateKey = process.env.PRIVATE_KEY
+    const privateKey = process.env.PRIVATE_KEY as `0x${string}`
     if (!privateKey) {
       throw new Error('请在 .env 文件中设置 PRIVATE_KEY')
     }
 
     // 推导账户
-    const account = privateKeyToAccount(privateKey)
+    const account: PrivateKeyAccount = privateKeyToAccount(privateKey)
     const userAddress = account.address
     console.log('账户地址:', userAddress)
 
     // 创建公共客户端
-    const publicClient = createPublicClient({
+    const publicClient: PublicClient = createPublicClient({
       chain: foundry,
-      // transport: http('https://eth-sepolia.public.blastapi.io')
       transport: http(process.env.RPC_URL)
     })
 
@@ -51,10 +51,11 @@ async function sendTransactionExample() {
     // 2. 构建交易参数
     const txParams = {
       account: account,
-      to: '0x01BF49D75f2b73A2FDEFa7664AEF22C86c5Be3df', // 目标地址
+      to: '0x01BF49D75f2b73A2FDEFa7664AEF22C86c5Be3df' as `0x${string}`, // 目标地址
       value: parseEther('0.001'), // 发送金额（ETH）
       chainId: foundry.id,
-      type: 'eip1559', // 
+      type: 'eip1559' as const, // 使用 const 断言确保类型正确
+      chain: foundry, // 添加 chain 参数
       
       // EIP-1559 交易参数
       maxFeePerGas: gasPrice * 2n, // 最大总费用为当前 gas 价格的 2 倍
@@ -72,7 +73,7 @@ async function sendTransactionExample() {
     })
 
     // 创建钱包客户端
-    const walletClient = createWalletClient({
+    const walletClient: WalletClient = createWalletClient({
       account: account,
       chain: foundry,
       transport: http(process.env.RPC_URL)
@@ -82,20 +83,19 @@ async function sendTransactionExample() {
     // const txHash1 = await walletClient.sendTransaction(preparedTx)
     // console.log('交易哈希:', txHash1)
 
-
     // 方式 2 ： 
-    // 6. 签名交易
+    // 签名交易
     const signedTx = await walletClient.signTransaction(preparedTx)
     console.log('Signed Transaction:', signedTx)
 
-    // 7. 发送交易  eth_sendRawTransaction
+    // 发送交易  eth_sendRawTransaction
     const txHash = await publicClient.sendRawTransaction({
-      serializedTransaction: signedTx
+        serializedTransaction: signedTx
     })
     console.log('Transaction Hash:', txHash)
 
-    // // 等待交易确认
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+    // 等待交易确认
+    const receipt: TransactionReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
     console.log('交易状态:', receipt.status === 'success' ? '成功' : '失败')
     console.log('区块号:', receipt.blockNumber)
     console.log('Gas 使用量:', receipt.gasUsed.toString())
@@ -104,10 +104,10 @@ async function sendTransactionExample() {
 
   } catch (error) {
     console.error('错误:', error)
-    if (error.message) {
+    if (error instanceof Error) {
       console.error('错误信息:', error.message)
     }
-    if (error.details) {
+    if (error && typeof error === 'object' && 'details' in error) {
       console.error('错误详情:', error.details)
     }
     throw error
@@ -115,4 +115,4 @@ async function sendTransactionExample() {
 }
 
 // 执行示例
-sendTransactionExample()
+sendTransactionExample() 
