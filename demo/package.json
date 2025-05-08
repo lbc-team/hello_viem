@@ -7,7 +7,7 @@
     "index": "tsc && node dist/index.js",
     "weth": "tsc && node dist/weth.js",
     "watchTransfer": "tsc && node dist/watchTransfer.js",
-    "build_tx_send_viem": "node build_tx_send_viem.js"
+    "build_raw_tx": "tsc && node dist/build_raw_tx.js"
   },
   "keywords": [],
   "author": "",
