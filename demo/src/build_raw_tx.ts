@@ -1,6 +1,6 @@
 import { createWalletClient, http, parseEther, parseGwei, type Hash, type TransactionReceipt } from 'viem'
 import { prepareTransactionRequest } from 'viem/actions'
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts'
+import { mnemonicToAccount, privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import { createPublicClient, type PublicClient, type WalletClient } from 'viem'
 import dotenv from 'dotenv'
@@ -17,7 +17,9 @@ async function sendTransactionExample(): Promise<Hash> {
       throw new Error('请在 .env 文件中设置 PRIVATE_KEY')
     }
 
-    // 推导账户
+    // 使用助记词 推导账户
+    // const account = mnemonicToAccount('') 
+    // 使用私钥 推导账户
     const account: PrivateKeyAccount = privateKeyToAccount(privateKey)
     const userAddress = account.address
     console.log('账户地址:', userAddress)
