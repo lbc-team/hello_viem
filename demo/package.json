@@ -9,7 +9,8 @@
     "watchTransfer": "tsc && node dist/watchTransfer.js",
     "build_raw_tx": "tsc && node dist/build_raw_tx.js",
     "build_tx_keystore": "tsc && node dist/build_tx_keystore.js",
-    "mpc_tx": "node src/mpc_tx.js"
+    "mpc_tx": "node src/mpc_tx.js",
+    "keystore_demo": "node src/keystore_demo.js"
   },
   "keywords": [],
   "author": "",
