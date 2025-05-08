@@ -6,7 +6,8 @@
   "scripts": {
     "index": "tsc && node dist/index.js",
     "weth": "tsc && node dist/weth.js",
-    "watchTransfer": "tsc && node dist/watchTransfer.js"
+    "watchTransfer": "tsc && node dist/watchTransfer.js",
+    "build_tx_send_viem": "node build_tx_send_viem.js"
   },
   "keywords": [],
   "author": "",
@@ -14,7 +15,7 @@
   "description": "",
   "dependencies": {
     "@types/node": "^22.10.1",
-    "dotenv": "^16.4.6",
+    "dotenv": "^16.5.0",
     "typescript": "^5.7.2",
     "viem": "^2.21.53"
   }
