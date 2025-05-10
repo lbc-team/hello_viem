@@ -12,19 +12,21 @@ import {
   useClient,
   useBalance
 } from 'wagmi';
-import { injected } from 'wagmi/connectors';
-import Counter_ABI from './contracts/Counter.json';
+import { AppKitProvider } from './appkit-config';
+import Counter_ABI from '../contracts/Counter.json';
+import { useAppKit } from '@reown/appkit/react';
 
 // Counter 合约地址
 const COUNTER_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 
-export default function Home() {
+function AppkitDemoContent() {
   const { address, isConnected } = useAccount();
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
   const chainId = useChainId();
   const chains = useChains();
   const currentChain = chains.find(chain => chain.id === chainId);
+  const { open } = useAppKit();
 
   // 使用 useBalance 获取余额
   const { data: balance } = useBalance({
@@ -65,15 +67,15 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8">
-      <h1 className="text-3xl font-bold mb-8">Simple Wagmi Demo</h1>
+      <h1 className="text-3xl font-bold mb-8">Appkit Demo</h1>
       
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
         {!isConnected ? (
           <button
-            onClick={() => connect({ connector: injected() })}
+            onClick={() => open()}
             className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors"
           >
-            连接 MetaMask
+            连接钱包
           </button>
         ) : (
           <div className="space-y-4">
@@ -133,3 +135,11 @@ export default function Home() {
     </div>
   );
 }
+
+export default function AppkitDemo() {
+  return (
+    <AppKitProvider>
+      <AppkitDemoContent />
+    </AppKitProvider>
+  );
+} 

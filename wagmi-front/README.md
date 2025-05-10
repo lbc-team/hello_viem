@@ -105,10 +105,8 @@ pnpm install
 pnpm dev
 ```
 
-4. 在浏览器中访问 `http://localhost:3000`
-```bash
-pnpm install
-```
+4. 在浏览器中访问 `http://localhost:3000` 或 `http://localhost:3000/appkit-demo`
+ 
 
 
 ## 项目结构
