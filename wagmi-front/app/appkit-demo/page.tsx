@@ -87,6 +87,12 @@ function AppkitDemoContent() {
                             <p className="font-mono">
                                 {currentChain?.name || '未知网络'} (Chain ID: {chainId})
                             </p>
+                            <button 
+                                onClick={() => open({ view: 'Networks' })}
+                                className="mt-2 bg-purple-500 text-white py-1 px-3 rounded hover:bg-purple-600 transition-colors"
+                            >
+                                切换网络
+                            </button>
                         </div>
                         <div className="text-center">
                             <p className="text-gray-600">余额:</p>
