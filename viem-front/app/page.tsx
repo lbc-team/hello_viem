@@ -121,6 +121,15 @@ export default function Home() {
       <h1 className="text-3xl font-bold mb-8">Simple Viem Demo</h1>
       
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
+        <div className="mb-4">
+          <a
+            href="/siwe"
+            className="block w-full bg-purple-500 text-white py-2 px-4 rounded hover:bg-purple-600 transition-colors text-center"
+          >
+            前往 SIWE 登录演示
+          </a>
+        </div>
+        
         {!isConnected ? (
           <button
             onClick={connectWallet}
