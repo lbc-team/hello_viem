@@ -18,7 +18,7 @@ async function sendTransactionExample(): Promise<Hash> {
     }
 
     // 使用助记词 推导账户
-    // const account = mnemonicToAccount('') 
+    // const account = mnemonicToAccount('xxxx xxx ') 
     // 使用私钥 推导账户
     const account: PrivateKeyAccount = privateKeyToAccount(privateKey)
     const userAddress = account.address
@@ -82,8 +82,8 @@ async function sendTransactionExample(): Promise<Hash> {
     })
 
     // // 方式 1：直接发送交易
-    // const txHash1 = await walletClient.sendTransaction(preparedTx)
-    // console.log('交易哈希:', txHash1)
+    const txHash1 = await walletClient.sendTransaction(preparedTx)
+    console.log('交易哈希:', txHash1)
 
     // 方式 2 ： 
     // 签名交易
