@@ -54,14 +54,15 @@ export default function EIP712Demo() {
         verifyingContract: CONTRACT_ADDRESS,
       };
 
+    // 合约中的 SEND_TYPEHASH 与前端定义的 types 结构一致
       const types = {
-        Send: [
+        Send: [  //  primaryType, 签名时, 消息的标题会显示 primaryType 的名称
           { name: 'to', type: 'address' },
           { name: 'value', type: 'uint256' },
         ],
       };
 
-      const value = {
+      const msg = {
         to: toAddress as Address,
         value: parseEther(amount),
       };
@@ -71,7 +72,7 @@ export default function EIP712Demo() {
         domain,
         types,
         primaryType: 'Send',
-        message: value,
+        message: msg,
       });
 
       setSignature(signature);
@@ -106,7 +107,7 @@ export default function EIP712Demo() {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">EIP712 签名演示</h1>
+      <h1 className="text-2xl font-bold mb-4">EIP712 Viem 签名演示</h1>
       
       {!account ? (
         <button
