@@ -1,4 +1,4 @@
-import { createWalletClient, http, createPublicClient, verifyMessage } from 'viem'
+import { createWalletClient, http, createPublicClient, verifyMessage, hashMessage } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { mainnet } from 'viem/chains'
 
@@ -17,6 +17,9 @@ async function main() {
     
     // 要签名的消息
     const message = 'hello world'
+
+    const hash = await hashMessage(message)
+    console.log('hash:', hash)
 
     
     // 签名消息

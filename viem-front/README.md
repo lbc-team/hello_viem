@@ -48,7 +48,7 @@ pnpm build
 pnpm start
 ```
 
-访问：http://localhost:3000 或 http://localhost:3000/siwe
+访问：http://localhost:3000 或 http://localhost:3000/siwe 、http://localhost:3000/eip712
 
 
 
