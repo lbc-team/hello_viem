@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   createWalletClient, 
   createPublicClient, 
   http, 
   parseEther,
   type Hash,
-  type Address
+  type Address,
+  custom,
+  type WalletClient
 } from 'viem';
 import { foundry } from 'viem/chains';
 import { EIP712VerifierABI } from '@/types/EIP712Verifier';
@@ -20,12 +22,8 @@ export default function EIP712Demo() {
   const [signature, setSignature] = useState('');
   const [verificationResult, setVerificationResult] = useState<boolean | null>(null);
   const [account, setAccount] = useState<Address | null>(null);
-
-  // 创建钱包客户端
-  const walletClient = createWalletClient({
-    chain: foundry,
-    transport: http()
-  });
+  const [error, setError] = useState<string>('');
+  const [walletClient, setWalletClient] = useState<WalletClient | null>(null);
 
   // 创建公共客户端
   const publicClient = createPublicClient({
@@ -33,20 +31,48 @@ export default function EIP712Demo() {
     transport: http()
   });
 
+  // 在客户端初始化钱包客户端
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.ethereum) {
+      const client = createWalletClient({
+        chain: foundry,
+        transport: custom(window.ethereum)
+      });
+      setWalletClient(client);
+    }
+  }, []);
+
   // 连接钱包
   const connectWallet = async () => {
+    if (!walletClient) {
+      setError('钱包客户端未初始化，请确保已安装 MetaMask');
+      return;
+    }
+
     try {
+      setError('');
+      // 请求用户授权连接钱包
       const [address] = await walletClient.requestAddresses();
       setAccount(address);
     } catch (error) {
       console.error('连接钱包错误:', error);
+      setError('连接钱包失败，请确保已安装 MetaMask 并解锁');
     }
   };
 
   const handleSign = async () => {
-    if (!walletClient || !account) return;
+    if (!walletClient || !account) {
+      setError('请先连接钱包');
+      return;
+    }
+
+    if (!toAddress || !amount) {
+      setError('请填写接收地址和金额');
+      return;
+    }
 
     try {
+      setError('');
       const domain = {
         name: 'EIP712Verifier',
         version: '1.0.0',
@@ -67,6 +93,7 @@ export default function EIP712Demo() {
         value: parseEther(amount),
       };
 
+      // 请求用户签名
       const signature = await walletClient.signTypedData({
         account,
         domain,
@@ -78,13 +105,18 @@ export default function EIP712Demo() {
       setSignature(signature);
     } catch (error) {
       console.error('签名错误:', error);
+      setError(error instanceof Error ? error.message : '签名失败');
     }
   };
 
   const handleVerify = async () => {
-    if (!account || !signature) return;
+    if (!account || !signature) {
+      setError('请先完成签名');
+      return;
+    }
 
     try {
+      setError('');
       const result = await publicClient.readContract({
         address: CONTRACT_ADDRESS,
         abi: EIP712VerifierABI,
@@ -102,6 +134,7 @@ export default function EIP712Demo() {
       setVerificationResult(result);
     } catch (error) {
       console.error('验证错误:', error);
+      setError(error instanceof Error ? error.message : '验证失败');
     }
   };
 
@@ -156,6 +189,12 @@ export default function EIP712Demo() {
               验证
             </button>
           </div>
+
+          {error && (
+            <div className="mt-4 text-red-500">
+              {error}
+            </div>
+          )}
 
           {signature && (
             <div className="mt-4">
