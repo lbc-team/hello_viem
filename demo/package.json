@@ -7,6 +7,8 @@
     "index": "tsc && node dist/index.js",
     "weth": "tsc && node dist/weth.js",
     "watchTransfer": "tsc && node dist/watchTransfer.js",
+    "watchTransferEth": "tsc && node dist/watchTransferEth.js",
+    "scanERC20Transfers": "tsc && node dist/scanERC20Transfers.js",
     "build_raw_tx": "tsc && node dist/build_raw_tx.js",
     "build_tx_keystore": "tsc && node dist/build_tx_keystore.js",
     "mpc_tx": "node src/mpc_tx.js",
