@@ -3,7 +3,8 @@ import {
     formatEther,
     http,
     publicActions,
-    type Log,
+    parseAbiItem,
+    parseAbi,
 } from "viem";
 import { foundry } from "viem/chains";
 import dotenv from "dotenv";
@@ -28,36 +29,50 @@ const main = async () => {
         transport: http(process.env.RPC_URL!),
     }).extend(publicActions);
 
-    console.log('开始扫描 ERC20 转账事件...');
+    console.log('开始扫描 ERC20 事件...');
 
     // 获取当前区块号
     const currentBlock = await publicClient.getBlockNumber();
     console.log(`当前区块号: ${currentBlock}`);
 
     // 设置扫描范围（这里扫描最近 1000 个区块）
+    // get fromBlock from db
     const fromBlock = 0n;
     const toBlock = currentBlock;
 
     try {
-        // 获取所有 ERC20 Transfer 事件
+        // 获取所有 ERC20 事件
         const logs = await publicClient.getLogs({
             fromBlock,
             toBlock,
-            event: TRANSFER_EVENT,
+            // address: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
+            // event: parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)')
+            // event: TRANSFER_EVENT
+            // multiple events
+            events: parseAbi([
+                'event Approval(address indexed owner, address indexed spender, uint256 value)',
+                'event Transfer(address indexed from, address indexed to, uint256 value)'
+            ])
         });
 
-        console.log(`\n在区块 ${fromBlock} 到 ${toBlock} 之间找到 ${logs.length} 个转账事件`);
+        console.log(`\n在区块 ${fromBlock} 到 ${toBlock} 之间找到 ${logs.length} 个事件`);
 
         // 处理每个事件
         for (const log of logs) {
-            if (log.args.value !== undefined) {
-                console.log('\n转账事件详情:');
+            console.log('\n事件详情:');
+            console.log(`事件类型: ${log.eventName}`);
+            console.log(`合约地址: ${log.address}`);
+            console.log(`交易哈希: ${log.transactionHash}`);
+            console.log(`区块号: ${log.blockNumber}`);
+
+            if (log.eventName === 'Transfer' && log.args.value !== undefined) {
                 console.log(`从: ${log.args.from}`);
                 console.log(`到: ${log.args.to}`);
                 console.log(`金额: ${formatEther(log.args.value)}`);
-                console.log(`合约地址: ${log.address}`);
-                console.log(`交易哈希: ${log.transactionHash}`);
-                console.log(`区块号: ${log.blockNumber}`);
+            } else if (log.eventName === 'Approval' && log.args.value !== undefined) {
+                console.log(`所有者: ${log.args.owner}`);
+                console.log(`授权给: ${log.args.spender}`);
+                console.log(`授权金额: ${formatEther(log.args.value)}`);
             }
         }
     } catch (error) {
