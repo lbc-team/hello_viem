@@ -90,7 +90,7 @@ async function main() {
   const code = await getCodeAtAddress(eoa.address, publicClient);
   console.log('eoa的链上代码:', code);
   
-  if(code.length > 0){
+  if(code && code.length > 0){
     console.log('eoa的链上代码不为空');
 
     const hash = await walletClient.sendTransaction({
@@ -131,9 +131,6 @@ async function main() {
   // 检查bank下用户的存款数量
   await getTokenBalance(TOKENBANK_ADDRESS, publicClient, walletClient);
   await getTokenBalance(eoa.address, publicClient, walletClient);
-
-
-
 
   const cancelAuthorization = await walletClient.signAuthorization({
     contractAddress: zeroAddress,
