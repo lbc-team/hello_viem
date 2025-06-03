@@ -2,15 +2,17 @@ import { createPublicClient, createWalletClient, http, encodeFunctionData, getCo
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains'
 import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const SimpleDelegateAbi = require('./abis/SimpleDelegateContract.json');
-const ERC20Abi = require('./abis/MyERC20.json');
-const TokenBankAbi = require('./abis/TokenBank.json');
+import type { TransactionReceipt } from 'viem';
+
+
+import SimpleDelegateAbi from './abis/SimpleDelegate.json' with { type: 'json' };
+import ERC20Abi from './abis/MyERC20.json' with { type: 'json' };
+import TokenBankAbi from './abis/TokenBank.json' with { type: 'json' };
+
 
 // ====== 配置 ======
-const EOA_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 const PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
-const SIMPLE_DELEGATE_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+const SIMPLE_DELEGATE_ADDRESS = '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0';
 const ERC20_ADDRESS = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
 const TOKENBANK_ADDRESS = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
 
@@ -42,13 +44,14 @@ async function main() {
 
     const eoa = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
     const publicClient = createPublicClient({
-    chain: foundry,
-    transport: http(process.env.RPC_URL!),
+        chain: foundry,
+        transport: http(process.env.RPC_URL!),
     });
+
     const walletClient = createWalletClient({
-    account: eoa,
-    chain: foundry,
-    transport: http('http://127.0.0.1:8545'),
+        account: eoa,
+        chain: foundry,
+        transport: http('http://127.0.0.1:8545'),
     } )   
 
   // 0. 查询eoa的链上代码
@@ -74,11 +77,11 @@ async function main() {
       data: approveCalldata,
       value: 0n,
     },
-    // {
-    //   to: TOKENBANK_ADDRESS,
-    //   data: depositCalldata,
-    //   value: 0n,
-    // },
+    {
+      to: TOKENBANK_ADDRESS,
+      data: depositCalldata,
+      value: 0n,
+    },
   ];
 
   // 3. 构造 execute calldata
@@ -91,26 +94,40 @@ async function main() {
 
   // 5. 生成 EIP-7702 授权
   const authorization = await walletClient.signAuthorization({
-    account: eoa,
+    // account: eoa,
     contractAddress: SIMPLE_DELEGATE_ADDRESS,
+    executor: 'self', 
   });
 
 
+  const hash = await walletClient.writeContract({
+    abi: SimpleDelegateAbi,
+    // address: eoa.address,
+    address: walletClient.account.address,
+    authorizationList: [authorization],
+    functionName: 'initialize',
+    // args: [ERC20_ADDRESS, TOKENBANK_ADDRESS, DEPOSIT_AMOUNT],
+  })
+
+
+  const receipt: TransactionReceipt = await publicClient.waitForTransactionReceipt({ hash: hash })
+  console.log('交易状态:', receipt.status === 'success' ? '成功' : '失败')
+  
+
 
   // 6. 发送 EIP-7702 交易
-
-  try {
-    const hash = await walletClient.writeContract({
-      abi: SimpleDelegateAbi,
-      address: SIMPLE_DELEGATE_ADDRESS,
-      functionName: 'execute',
-      args: [calls],
-      authorizationList: [authorization],
-    });
-    console.log('EIP-7702 批量交易已发送，tx hash:', hash);
-  } catch (err) {
-    console.error('发送 EIP-7702 交易失败:', err);
-  }
+//   try {
+//     const hash = await walletClient.writeContract({
+//       abi: SimpleDelegateAbi,
+//       address: eoa.address,
+//       functionName: 'execute',
+//       args: [calls],
+//       authorizationList: [authorization],
+//     });
+//     console.log('EIP-7702 批量交易已发送，tx hash:', hash);
+//   } catch (err) {
+//     console.error('发送 EIP-7702 交易失败:', err);
+//   }
 
   // 7. 检查bank下用户的存款数量
   await getTokenBalance(TOKENBANK_ADDRESS, publicClient, walletClient);

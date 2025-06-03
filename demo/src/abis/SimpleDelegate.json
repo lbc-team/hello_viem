@@ -5,6 +5,29 @@
   },
   {
     "type": "function",
+    "name": "approveAndDeposit",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "tokenbank",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "execute",
     "inputs": [
       {
@@ -34,6 +57,20 @@
     "stateMutability": "payable"
   },
   {
+    "type": "function",
+    "name": "initialize",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "ping",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
     "type": "event",
     "name": "Executed",
     "inputs": [
@@ -54,6 +91,19 @@
         "type": "bytes",
         "indexed": false,
         "internalType": "bytes"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Log",
+    "inputs": [
+      {
+        "name": "message",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
       }
     ],
     "anonymous": false
