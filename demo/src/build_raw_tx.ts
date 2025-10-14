@@ -63,7 +63,7 @@ async function sendTransactionExample(): Promise<Hash> {
       maxFeePerGas: gasPrice * 2n, // 最大总费用为当前 gas 价格的 2 倍
       maxPriorityFeePerGas: parseGwei('1.5'), // 最大小费
       gas: 21000n,   // gas limit
-      nonce: nonce,
+      nonce: nonce
     }
 
     // 或 自动 Gas 估算 及参数验证和补充

@@ -14,9 +14,9 @@ import TokenBankAbi from './abis/TokenBank.json' with { type: 'json' };
 const ALICE_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 const BOB_PRIVATE_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
 
-const SIMPLE_DELEGATE_ADDRESS = '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0';
-const ERC20_ADDRESS = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
-const TOKENBANK_ADDRESS = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
+const SIMPLE_DELEGATE_ADDRESS = '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9';
+const ERC20_ADDRESS = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9';
+const TOKENBANK_ADDRESS = '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707';
 
 // deposit 参数
 const DEPOSIT_AMOUNT = 1000000000000000000n; // 1 token
@@ -53,7 +53,7 @@ async function main() {
         transport: http(process.env.RPC_URL!),
     });
 
-    const walletClient = createWalletClient({
+    const bobWalletClient = createWalletClient({
         account: bob,
         chain: foundry,
         transport: http('http://127.0.0.1:8545'),
@@ -99,7 +99,8 @@ async function main() {
       args: [calls],
     });
 
-    const hash = await walletClient.sendTransaction({
+
+    const hash = await bobWalletClient.sendTransaction({
       to: alice.address,
       data: executeCalldata,
     });
@@ -110,7 +111,15 @@ async function main() {
   } else {
 
     // 生成 EIP-7702 授权
-    const authorization = await walletClient.signAuthorization({
+
+
+    const aliceWalletClient = createWalletClient({
+      account: alice,
+      chain: foundry,
+      transport: http('http://127.0.0.1:8545'),
+  } )  
+
+    const authorization = await aliceWalletClient.signAuthorization({
       account: alice,
       contractAddress: SIMPLE_DELEGATE_ADDRESS,
     });
@@ -118,7 +127,7 @@ async function main() {
     // Designate the Contract on the EOA, and invoke the execute function
     // 发送 EIP-7702 交易
     try {
-      const hash = await walletClient.writeContract({
+      const hash = await bobWalletClient.writeContract({
         abi: SimpleDelegateAbi,
         address: alice.address,
         functionName: 'execute',
@@ -132,8 +141,8 @@ async function main() {
   }
 
   // 检查bank下用户的存款数量
-  await getTokenBalance(TOKENBANK_ADDRESS, publicClient, walletClient);
-  await getTokenBalance(alice.address, publicClient, walletClient);
+  await getTokenBalance(TOKENBANK_ADDRESS, publicClient, bobWalletClient);
+  await getTokenBalance(alice.address, publicClient, bobWalletClient);
   await getCodeAtAddress(alice.address, publicClient);
 }
 
