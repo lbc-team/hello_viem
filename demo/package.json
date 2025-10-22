@@ -15,7 +15,9 @@
     "build_7702_tx": "tsc && node dist/build_7702_tx.js",
     "build_self_7702_tx": "tsc && node dist/build_self_7702_tx.js",
     "keystore_demo": "node src/keystore_demo.js",
-    "sign_verify": "tsc && node dist/sign_verify.js"
+    "sign_verify": "tsc && node dist/sign_verify.js",
+    "simulator": "tsc && node dist/transaction_simulator.js",
+    "simulator_example": "tsc && node dist/simulator_example.js"
   },
   "keywords": [],
   "author": "",
