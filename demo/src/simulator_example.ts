@@ -73,15 +73,15 @@ async function runExamples() {
 
 
 
-    const OPS6_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address;
-    const tokenbank_address = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as Address;
+    const OPS6_ADDRESS = '0xD0B50F190F097D2E2E3136B6105923d1EEf67569' as Address;
+    const tokenbank_address = '0xD0DB636309D53423B6Bb7A3B318Aaee7CC9CB41A' as Address;
 
 
     const depositEthData = encodeFunctionData({
         abi: parseAbi(['function depositEth(uint256 amount)']),
-        functionName: 'depositEth',
+        functionName: 'depositEth', 
         args: [
-            parseEther('1'), // 转账 1 代币
+            parseEther('1.5'), // 转账 1.5 ETH
         ],
     });
 
@@ -105,7 +105,7 @@ async function runExamples() {
     // 示例 4: 模拟 ERC20 存款到 tokenbank 合约
     // ============================================================
     console.log('\n📌 示例 4: 模拟 ERC20 存款到合约\n');
-    console.log('💡 提示: 请先部署 ERC20 合约到 Anvil，然后替换下面的合约地址\n');
+    // console.log('💡 提示: 请先部署 ERC20 合约到 Anvil，然后替换下面的合约地址\n');
 
 
     const approveData = encodeFunctionData({

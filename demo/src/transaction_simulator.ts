@@ -8,7 +8,9 @@ import {
     type Hash,
     type TransactionRequest,
     decodeFunctionData,
+    encodeFunctionData,
     hexToNumber,
+    parseEther,
 } from "viem";
 import { foundry } from "viem/chains";
 import dotenv from "dotenv";
@@ -114,7 +116,6 @@ class TransactionSimulator {
         try {
             // 1. 创建快照
             const snapshotId = await this.createSnapshot();
-            console.log(`[方法1-基础模拟] 创建快照: ${snapshotId}`);
 
             let transfers: Transfer[] = [];
             let gasUsed: bigint | undefined;
@@ -141,12 +142,11 @@ class TransactionSimulator {
                 gasUsed = receipt.gasUsed;
                 console.log(`[方法1-基础模拟] 实际 Gas 使用: ${gasUsed}`);
 
-                // 5. 分析收据（不使用 trace，仅分析日志）
+                // 5. 分析收据 
                 transfers = await this.analyzeTransactionReceipt(txHash, receipt);
 
                 // 6. 恢复到快照
                 await this.revertToSnapshot(snapshotId);
-                console.log(`[方法1-基础模拟] 恢复到快照: ${snapshotId}`);
 
                 return {
                     success: true,
@@ -175,7 +175,6 @@ class TransactionSimulator {
         try {
             // 1. 创建快照
             const snapshotId = await this.createSnapshot();
-            console.log(`[方法2-Trace] 创建快照: ${snapshotId}`);
 
             let transfers: Transfer[] = [];
             let gasUsed: bigint | undefined;
@@ -210,7 +209,6 @@ class TransactionSimulator {
 
                 // 7. 恢复到快照
                 await this.revertToSnapshot(snapshotId);
-                console.log(`[方法2-Trace] 恢复到快照: ${snapshotId}`);
 
                 return {
                     success: true,
@@ -239,7 +237,6 @@ class TransactionSimulator {
         try {
             // 1. 创建快照
             const snapshotId = await this.createSnapshot();
-            console.log(`[方法3-DebugTrace] 创建快照: ${snapshotId}`);
 
             let transfers: Transfer[] = [];
             let gasUsed: bigint | undefined;
@@ -274,7 +271,6 @@ class TransactionSimulator {
 
                 // 7. 恢复到快照
                 await this.revertToSnapshot(snapshotId);
-                console.log(`[方法3-DebugTrace] 恢复到快照: ${snapshotId}`);
 
                 return {
                     success: true,
@@ -569,16 +565,58 @@ class TransactionSimulator {
     }
 }
 
+function getTestTx() {
+    return {
+        from: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address, // Anvil 默认账户
+        to: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address, // Anvil 默认账户 1
+        value: BigInt('1000000000000000000'), // 1 ETH
+    } as TransactionRequest;
+}
+
+function getTestTx2() {
+    const tokenbank_address = '0xD0DB636309D53423B6Bb7A3B318Aaee7CC9CB41A' as Address;
+    const amount = parseEther('1.5');
+    const depositEthData = encodeFunctionData({
+        abi: parseAbi(['function depositEth(uint256 amount)']),
+        functionName: 'depositEth', 
+        args: [
+            amount, // 转账 1.5 ETH
+        ],
+    });
+
+    return{
+        from: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address,
+        to: tokenbank_address,
+        data: depositEthData,
+        value: amount
+    } 
+}
+
+// cast send 0x5FbDB2315678afecb367f032d93F642f64180aa3 "approve(address to, uint256 value)" 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 1000000000000000000000 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --rpc-url local
+// cast call 0xD0B50F190F097D2E2E3136B6105923d1EEf67569 "allowance(address account, address spender)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 0xD0DB636309D53423B6Bb7A3B318Aaee7CC9CB41A
+function getTestTx3() {
+    const OPS6_ADDRESS = '0x0165878A594ca255338adfa4d48449f69242Eb8F' as Address;
+    const tokenbank_address = '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853' as Address;
+    const amount = parseEther('1');
+    const depositErc20Data = encodeFunctionData({
+        abi: parseAbi(['function deposit(uint256 amount)']),
+        functionName: 'deposit',
+        args: [amount],
+    });
+
+    return {
+        from: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address,
+        to: tokenbank_address,
+        data: depositErc20Data
+    }
+}
+
 // 示例使用
 async function main() {
     const simulator = new TransactionSimulator(process.env.RPC_URL!);
 
     // 测试交易
-    const testTx: TransactionRequest = {
-        from: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address, // Anvil 默认账户
-        to: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address,
-        value: BigInt('1000000000000000000'), // 1 ETH
-    };
+    const testTx = getTestTx3();
 
     console.log('=========================================');
     console.log('测试交易模拟的三种方法');
@@ -621,15 +659,10 @@ async function main() {
         console.error(`模拟失败: ${result3.error}`);
     }
 
-    console.log('\n=========================================');
-    console.log('测试完成');
-    console.log('=========================================');
-
     // 注意：
     // - 方法1：只分析收据和日志，可追踪顶层 ETH 转账 + ERC20/ERC721 转账
     // - 方法2：使用 trace_transaction (Parity/Erigon) 追踪所有 ETH 转账（包括内部转账） + 日志中的 ERC20/ERC721 转账
     // - 方法3：使用 debug_traceTransaction (Geth) 追踪所有 ETH 转账（包括内部转账） + 日志中的 ERC20/ERC721 转账
-    // - Anvil 默认支持这三种方法
 }
 
 // 运行示例
