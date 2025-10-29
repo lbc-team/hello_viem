@@ -31,14 +31,14 @@ dotenv.config();
 6. 返回结果
 ```
 
-### 支持的 RPC 方法
+### 使用的 RPC 方法
 - `evm_snapshot` - 创建状态快照
 - `evm_revert` - 恢复到快照
 - `eth_sendTransaction` - 发送交易
 - `eth_getTransactionReceipt` - 获取交易回执
 - `eth_estimateGas` - 估算 gas
 - `trace_transaction` - 追踪交易, Trace 模块（Parity/Erigon 风格）的接口 
-- `trace_block` -  Trace 模块的接口 
+- `trace_block` -  Trace 模块的接口（未使用）
 - `debug_traceTransaction` - 调试追踪 , Geth 风格的调试接口，对一笔已上链交易 进行详细的 EVM 执行追踪,  输出：gas 消耗、存储变化（storage diff）、内部调用的 call tree
 - `debug_traceCall` - Geth 调试接口，用于追踪未上链的模拟调用（call 模拟）
 
@@ -337,7 +337,7 @@ class TransactionSimulator {
     /**
      * 方法 4: 使用 debug_traceCall (Geth 风格，不执行交易)
      * 通过 debug_traceCall 进行模拟调用，不需要实际执行交易，也不需要快照
-     * 注意：此方法无法获取 ERC20/ERC721 转账，因为没有真实的交易日志
+     * 通过解析 call input 识别 ERC20 的 transfer/transferFrom 调用来追踪 Token 转账
      */
     async simulateTransactionWithTraceCall(txRequest: TransactionRequest): Promise<SimulationResult> {
         try {
@@ -380,6 +380,10 @@ class TransactionSimulator {
             // 3. 从 debug trace 数据中提取 ETH 转账
             const ethTransfers = this.extractAllTransfersFromDebugTrace(traces);
             transfers.push(...ethTransfers);
+
+            // 4. 从 trace calls 中识别 ERC20 Token 转账
+            const tokenTransfers = await this.extractTokenTransfersFromTraceCalls(traces);
+            transfers.push(...tokenTransfers);
 
             return {
                 success: true,
@@ -501,6 +505,143 @@ class TransactionSimulator {
             } catch (error) {
                 console.warn(`解析日志失败:`, error);
                 // 继续处理其他日志
+            }
+        }
+
+        return transfers;
+    }
+
+    /**
+     * 从 trace calls 中识别 ERC20 Token 转账（通过匹配 transfer/transferFrom 函数签名）
+     * 用于 debug_traceCall 等没有日志的场景
+     */
+    private async extractTokenTransfersFromTraceCalls(traces: any): Promise<(ERC20Transfer | ERC721Transfer)[]> {
+        const transfers: (ERC20Transfer | ERC721Transfer)[] = [];
+
+        if (!traces) return transfers;
+
+        // ERC20 函数签名
+        const TRANSFER_SIGNATURE = '0xa9059cbb'; // transfer(address,uint256)
+        const TRANSFER_FROM_SIGNATURE = '0x23b872dd'; // transferFrom(address,address,uint256)
+
+        // 递归处理所有 calls
+        const processCalls = async (call: any) => {
+            if (!call || !call.input) return;
+
+            const signature = call.input.slice(0, 10);
+
+            // 检查是否是 transfer 或 transferFrom
+            if (signature === TRANSFER_SIGNATURE) {
+                // transfer(address to, uint256 amount)
+                try {
+                    const decoded = decodeFunctionData({
+                        abi: parseAbi(['function transfer(address to, uint256 amount) returns (bool)']),
+                        data: call.input as `0x${string}`,
+                    });
+
+                    const to = decoded.args[0] as Address;
+                    const amount = decoded.args[1] as bigint;
+
+                    // 获取代币信息
+                    let tokenSymbol: string | undefined;
+                    let tokenDecimals: number | undefined;
+
+                    try {
+                        tokenSymbol = await this.publicClient.readContract({
+                            address: call.to,
+                            abi: ERC20_ABI,
+                            functionName: 'symbol',
+                        }) as string;
+
+                        tokenDecimals = await this.publicClient.readContract({
+                            address: call.to,
+                            abi: ERC20_ABI,
+                            functionName: 'decimals',
+                        }) as number;
+                    } catch (e) {
+                        // 忽略获取失败
+                    }
+
+                    const valueFormatted = tokenDecimals
+                        ? (Number(amount) / Math.pow(10, tokenDecimals)).toString()
+                        : amount.toString();
+
+                    transfers.push({
+                        type: 'ERC20',
+                        tokenAddress: call.to,
+                        from: call.from as Address,
+                        to,
+                        value: amount,
+                        valueFormatted,
+                        tokenSymbol,
+                        tokenDecimals,
+                    });
+                } catch (e) {
+                    console.warn(`解析 transfer 调用失败:`, e);
+                }
+            } else if (signature === TRANSFER_FROM_SIGNATURE) {
+                // transferFrom(address from, address to, uint256 amount)
+                try {
+                    const decoded = decodeFunctionData({
+                        abi: parseAbi(['function transferFrom(address from, address to, uint256 amount) returns (bool)']),
+                        data: call.input as `0x${string}`,
+                    });
+
+                    const from = decoded.args[0] as Address;
+                    const to = decoded.args[1] as Address;
+                    const amount = decoded.args[2] as bigint;
+
+                    // 获取代币信息
+                    let tokenSymbol: string | undefined;
+                    let tokenDecimals: number | undefined;
+
+                    try {
+                        tokenSymbol = await this.publicClient.readContract({
+                            address: call.to,
+                            abi: ERC20_ABI,
+                            functionName: 'symbol',
+                        }) as string;
+
+                        tokenDecimals = await this.publicClient.readContract({
+                            address: call.to,
+                            abi: ERC20_ABI,
+                            functionName: 'decimals',
+                        }) as number;
+                    } catch (e) {
+                        // 忽略获取失败
+                    }
+
+                    const valueFormatted = tokenDecimals
+                        ? (Number(amount) / Math.pow(10, tokenDecimals)).toString()
+                        : amount.toString();
+
+                    transfers.push({
+                        type: 'ERC20',
+                        tokenAddress: call.to,
+                        from,
+                        to,
+                        value: amount,
+                        valueFormatted,
+                        tokenSymbol,
+                        tokenDecimals,
+                    });
+                } catch (e) {
+                    console.warn(`解析 transferFrom 调用失败:`, e);
+                }
+            }
+
+            // 递归处理子调用
+            if (call.calls && Array.isArray(call.calls)) {
+                for (const subCall of call.calls) {
+                    await processCalls(subCall);
+                }
+            }
+        };
+
+        // 只处理 traces.calls 数组，不处理顶层（避免重复）
+        if (traces.calls && Array.isArray(traces.calls)) {
+            for (const call of traces.calls) {
+                await processCalls(call);
             }
         }
 
@@ -696,7 +837,7 @@ function getTestTx2() {
     } 
 }
 
-// cast send 0x5FbDB2315678afecb367f032d93F642f64180aa3 "approve(address to, uint256 value)" 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 1000000000000000000000 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --rpc-url local
+// cast send 0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6 "approve(address to, uint256 value)" 0x8A791620dd6260079BF849Dc5567aDC3F2FdC318 1000000000000000000000 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --rpc-url local
 // cast call 0xD0B50F190F097D2E2E3136B6105923d1EEf67569 "allowance(address account, address spender)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 0xD0DB636309D53423B6Bb7A3B318Aaee7CC9CB41A
 function getTestTx3() {
     const OPS6_ADDRESS = '0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6' as Address;
@@ -776,15 +917,13 @@ async function main() {
         console.error(`模拟失败: ${result4.error}`);
     }
 
-    console.log('\n=========================================');
-    console.log('测试完成');
-    console.log('=========================================');
+    console.log('模拟交易完成');
 
     // 注意：
     // - 方法1：只分析收据和日志，可追踪顶层 ETH 转账 + ERC20/ERC721 转账
     // - 方法2：使用 trace_transaction (Parity/Erigon) 追踪所有 ETH 转账（包括内部转账） + 日志中的 ERC20/ERC721 转账
     // - 方法3：使用 debug_traceTransaction (Geth) 追踪所有 ETH 转账（包括内部转账） + 日志中的 ERC20/ERC721 转账
-    // - 方法4：使用 debug_traceCall (Geth) 模拟调用，不实际执行交易，只能追踪 ETH 转账
+    // - 方法4：使用 debug_traceCall (Geth) 模拟调用，不实际执行交易，追踪所有 ETH 转账 + 通过解析 call input 识别 ERC20 转账
     // - Anvil 默认支持这四种方法
 }
 
