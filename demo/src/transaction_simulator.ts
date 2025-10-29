@@ -106,32 +106,32 @@ class TransactionSimulator {
     }
 
     /**
-     * 模拟交易并获取所有转账记录
+     * 方法 1: 基于快照的基础模拟
+     * 依次调用 createSnapshot、estimateGas、executeTransaction、分析收据、revertToSnapshot
+     * 不使用 trace 方法，只分析交易日志
      */
-    async simulateTransaction(txRequest: TransactionRequest): Promise<SimulationResult> {
+    async simulateTransactionBasic(txRequest: TransactionRequest): Promise<SimulationResult> {
         try {
-            // 1. 获取当前状态的快照
+            // 1. 创建快照
             const snapshotId = await this.createSnapshot();
-            console.log(`创建快照: ${snapshotId}`);
+            console.log(`[方法1-基础模拟] 创建快照: ${snapshotId}`);
 
             let transfers: Transfer[] = [];
             let gasUsed: bigint | undefined;
 
             try {
-                // 2. 执行交易调用以估算 gas 和验证交易
+                // 2. 估算 Gas
                 const estimatedGas = await this.publicClient.estimateGas({
                     account: txRequest.from,
                     to: txRequest.to,
                     value: txRequest.value,
                     data: txRequest.data,
                 });
+                console.log(`[方法1-基础模拟] 估算 Gas: ${estimatedGas}`);
 
-                console.log(`估算 Gas: ${estimatedGas}`);
-
-                // 3. 使用 debug_traceCall 来追踪交易执行（如果 Anvil 支持）
-                // 或者实际执行交易然后分析日志
+                // 3. 执行交易
                 const txHash = await this.executeTransaction(txRequest);
-                console.log(`模拟交易哈希: ${txHash}`);
+                console.log(`[方法1-基础模拟] 模拟交易哈希: ${txHash}`);
 
                 // 4. 获取交易回执
                 const receipt = await this.publicClient.waitForTransactionReceipt({
@@ -139,14 +139,14 @@ class TransactionSimulator {
                 });
 
                 gasUsed = receipt.gasUsed;
-                console.log(`实际 Gas 使用: ${gasUsed}`);
+                console.log(`[方法1-基础模拟] 实际 Gas 使用: ${gasUsed}`);
 
-                // 5. 分析交易以提取转账信息
-                transfers = await this.analyzeTransaction(txHash, receipt);
+                // 5. 分析收据（不使用 trace，仅分析日志）
+                transfers = await this.analyzeTransactionReceipt(txHash, receipt);
 
-                // 6. 恢复到快照状态
+                // 6. 恢复到快照
                 await this.revertToSnapshot(snapshotId);
-                console.log(`恢复到快照: ${snapshotId}`);
+                console.log(`[方法1-基础模拟] 恢复到快照: ${snapshotId}`);
 
                 return {
                     success: true,
@@ -154,12 +154,11 @@ class TransactionSimulator {
                     gasUsed,
                 };
             } catch (error) {
-                // 确保即使出错也要恢复快照
                 await this.revertToSnapshot(snapshotId);
                 throw error;
             }
         } catch (error) {
-            console.error('模拟交易失败:', error);
+            console.error('[方法1-基础模拟] 模拟交易失败:', error);
             return {
                 success: false,
                 transfers: [],
@@ -169,9 +168,137 @@ class TransactionSimulator {
     }
 
     /**
-     * 分析交易并提取所有转账记录
+     * 方法 2: 使用 trace_transaction (Parity/Erigon 风格)
+     * 通过 trace_transaction API 获取详细的调用追踪（ETH 转账），并从日志中提取 ERC20/ERC721 转账
      */
-    private async analyzeTransaction(txHash: Hash, receipt: any): Promise<Transfer[]> {
+    async simulateTransactionWithTrace(txRequest: TransactionRequest): Promise<SimulationResult> {
+        try {
+            // 1. 创建快照
+            const snapshotId = await this.createSnapshot();
+            console.log(`[方法2-Trace] 创建快照: ${snapshotId}`);
+
+            let transfers: Transfer[] = [];
+            let gasUsed: bigint | undefined;
+
+            try {
+                // 2. 执行交易
+                const txHash = await this.executeTransaction(txRequest);
+                console.log(`[方法2-Trace] 模拟交易哈希: ${txHash}`);
+
+                // 3. 获取交易回执
+                const receipt = await this.publicClient.waitForTransactionReceipt({
+                    hash: txHash,
+                });
+
+                gasUsed = receipt.gasUsed;
+                console.log(`[方法2-Trace] 实际 Gas 使用: ${gasUsed}`);
+
+                // 4. 使用 trace_transaction 分析（提取 ETH 转账）
+                const traces = await this.publicClient.request({
+                    method: 'trace_transaction' as any,
+                    params: [txHash] as any,
+                } as any);
+                console.log(`[方法2-Trace] 获取到 trace 数据`);
+
+                // 5. 从 trace 数据中提取 ETH 转账
+                const ethTransfers = this.extractAllTransfersFromTrace(traces);
+                transfers.push(...ethTransfers);
+
+                // 6. 从日志中提取 ERC20/ERC721 转账
+                const tokenTransfers = await this.extractTokenTransfersFromLogs(receipt);
+                transfers.push(...tokenTransfers);
+
+                // 7. 恢复到快照
+                await this.revertToSnapshot(snapshotId);
+                console.log(`[方法2-Trace] 恢复到快照: ${snapshotId}`);
+
+                return {
+                    success: true,
+                    transfers,
+                    gasUsed,
+                };
+            } catch (error) {
+                await this.revertToSnapshot(snapshotId);
+                throw error;
+            }
+        } catch (error) {
+            console.error('[方法2-Trace] 模拟交易失败:', error);
+            return {
+                success: false,
+                transfers: [],
+                error: error instanceof Error ? error.message : String(error),
+            };
+        }
+    }
+
+    /**
+     * 方法 3: 使用 debug_traceTransaction (Geth 风格)
+     * 通过 debug_traceTransaction API 获取详细的 EVM 执行追踪（ETH 转账），并从日志中提取 ERC20/ERC721 转账
+     */
+    async simulateTransactionWithDebugTrace(txRequest: TransactionRequest): Promise<SimulationResult> {
+        try {
+            // 1. 创建快照
+            const snapshotId = await this.createSnapshot();
+            console.log(`[方法3-DebugTrace] 创建快照: ${snapshotId}`);
+
+            let transfers: Transfer[] = [];
+            let gasUsed: bigint | undefined;
+
+            try {
+                // 2. 执行交易
+                const txHash = await this.executeTransaction(txRequest);
+                console.log(`[方法3-DebugTrace] 模拟交易哈希: ${txHash}`);
+
+                // 3. 获取交易回执
+                const receipt = await this.publicClient.waitForTransactionReceipt({
+                    hash: txHash,
+                });
+
+                gasUsed = receipt.gasUsed;
+                console.log(`[方法3-DebugTrace] 实际 Gas 使用: ${gasUsed}`);
+
+                // 4. 使用 debug_traceTransaction 分析（提取 ETH 转账）
+                const traces = await this.publicClient.request({
+                    method: 'debug_traceTransaction' as any,
+                    params: [txHash, { tracer: 'callTracer' }] as any,
+                } as any);
+                console.log(`[方法3-DebugTrace] 获取到 debug trace 数据`);
+
+                // 5. 从 debug trace 数据中提取 ETH 转账
+                const ethTransfers = this.extractAllTransfersFromDebugTrace(traces);
+                transfers.push(...ethTransfers);
+
+                // 6. 从日志中提取 ERC20/ERC721 转账
+                const tokenTransfers = await this.extractTokenTransfersFromLogs(receipt);
+                transfers.push(...tokenTransfers);
+
+                // 7. 恢复到快照
+                await this.revertToSnapshot(snapshotId);
+                console.log(`[方法3-DebugTrace] 恢复到快照: ${snapshotId}`);
+
+                return {
+                    success: true,
+                    transfers,
+                    gasUsed,
+                };
+            } catch (error) {
+                await this.revertToSnapshot(snapshotId);
+                throw error;
+            }
+        } catch (error) {
+            console.error('[方法3-DebugTrace] 模拟交易失败:', error);
+            return {
+                success: false,
+                transfers: [],
+                error: error instanceof Error ? error.message : String(error),
+            };
+        }
+    }
+
+    /**
+     * 分析交易收据并提取转账记录（从日志中提取）
+     */
+    private async analyzeTransactionReceipt(txHash: Hash, receipt: any): Promise<Transfer[]> {
         const transfers: Transfer[] = [];
 
         // 1. 获取完整的交易信息
@@ -188,7 +315,20 @@ class TransactionSimulator {
             });
         }
 
-        // 3. 分析交易日志以获取 ERC20/ERC721 转账
+        // 3. 从日志中提取 ERC20/ERC721 转账
+        const tokenTransfers = await this.extractTokenTransfersFromLogs(receipt);
+        transfers.push(...tokenTransfers);
+
+        return transfers;
+    }
+
+    /**
+     * 从交易日志中提取 ERC20/ERC721 转账
+     */
+    private async extractTokenTransfersFromLogs(receipt: any): Promise<(ERC20Transfer | ERC721Transfer)[]> {
+        const transfers: (ERC20Transfer | ERC721Transfer)[] = [];
+
+        // 分析交易日志以获取 ERC20/ERC721 转账
         for (const log of receipt.logs) {
             try {
                 // 尝试解析为 Transfer 事件
@@ -263,15 +403,6 @@ class TransactionSimulator {
             }
         }
 
-        // 4. 使用 trace_transaction 追踪内部 ETH 转账（如果 Anvil 支持）
-        try {
-            const traces = await this.traceTransaction(txHash);
-            const internalTransfers = this.extractInternalTransfers(traces);
-            transfers.push(...internalTransfers);
-        } catch (error) {
-            console.warn('追踪内部转账失败（可能不支持 trace API）:', error);
-        }
-
         return transfers;
     }
 
@@ -320,37 +451,9 @@ class TransactionSimulator {
     }
 
     /**
-     * 追踪交易执行（使用 debug_traceTransaction 或 trace_transaction）
+     * 从 trace_transaction 结果中提取所有 ETH 转账（包括顶层和内部转账）
      */
-    private async traceTransaction(txHash: Hash): Promise<any> {
-        try {
-            // 尝试使用 trace_transaction (OpenEthereum/Erigon 风格)
-            const traces = await this.publicClient.request({
-                method: 'trace_transaction' as any,
-                params: [txHash] as any,
-            } as any);
-            console.log('trace_transaction traces:', traces);
-            return traces;
-        } catch (error) {
-            // 尝试使用 debug_traceTransaction (Geth 风格)
-            try {
-                const traces = await this.publicClient.request({
-                    method: 'debug_traceTransaction' as any,
-                    params: [txHash, { tracer: 'callTracer' }] as any,
-                } as any);
-                console.log('debug_traceTransaction traces:', traces);
-                return traces;
-            } catch (e) {
-                throw new Error('节点不支持交易追踪 API');
-            }
-        }
-    }
-
-    /**
-     * 从追踪结果中提取内部 ETH 转账
-     * 注意：这里只提取内部调用的转账，不包括顶层交易本身
-     */
-    private extractInternalTransfers(traces: any): ETHTransfer[] {
+    private extractAllTransfersFromTrace(traces: any): ETHTransfer[] {
         const transfers: ETHTransfer[] = [];
 
         if (!traces) return transfers;
@@ -358,13 +461,10 @@ class TransactionSimulator {
         // 处理 trace_transaction 格式 (Parity/Erigon 风格)
         if (Array.isArray(traces)) {
             for (const trace of traces) {
-                // 跳过顶层调用（traceAddress 为空数组表示顶层）
-                // 只提取内部调用（traceAddress 有值）
+                // 提取所有 call 类型的转账（包括顶层和内部转账）
                 if (trace.type === 'call' &&
                     trace.action?.value &&
-                    BigInt(trace.action.value) > 0n &&
-                    trace.traceAddress &&
-                    trace.traceAddress.length > 0) {
+                    BigInt(trace.action.value) > 0n) {
                     transfers.push({
                         type: 'ETH',
                         from: trace.action.from as Address,
@@ -376,31 +476,50 @@ class TransactionSimulator {
             }
         }
 
+        return transfers;
+    }
+
+    /**
+     * 从 debug_traceTransaction 结果中提取所有 ETH 转账（包括顶层和内部转账）
+     */
+    private extractAllTransfersFromDebugTrace(traces: any): ETHTransfer[] {
+        const transfers: ETHTransfer[] = [];
+
+        if (!traces) return transfers;
+
         // 处理 debug_traceTransaction (callTracer) 格式 (Geth 风格)
-        if (traces.calls) {
-            // 只提取 traces.calls 中的调用（这些是内部调用）
-            // 不包括 traces 顶层的调用
-            const extractFromCalls = (call: any) => {
-                if (call.value && BigInt(call.value) > 0n) {
-                    transfers.push({
-                        type: 'ETH',
-                        from: call.from as Address,
-                        to: call.to as Address,
-                        value: BigInt(call.value),
-                        valueFormatted: formatEther(BigInt(call.value)),
-                    });
-                }
+        // 先提取顶层调用
+        if (traces.value && BigInt(traces.value) > 0n) {
+            transfers.push({
+                type: 'ETH',
+                from: traces.from as Address,
+                to: traces.to as Address,
+                value: BigInt(traces.value),
+                valueFormatted: formatEther(BigInt(traces.value)),
+            });
+        }
 
-                // 递归提取更深层的调用
-                if (call.calls) {
-                    call.calls.forEach(extractFromCalls);
-                }
-            };
-
-            // 只处理 traces.calls 数组，不处理 traces 本身
-            if (Array.isArray(traces.calls)) {
-                traces.calls.forEach(extractFromCalls);
+        // 递归提取内部调用
+        const extractFromCalls = (call: any) => {
+            if (call.value && BigInt(call.value) > 0n) {
+                transfers.push({
+                    type: 'ETH',
+                    from: call.from as Address,
+                    to: call.to as Address,
+                    value: BigInt(call.value),
+                    valueFormatted: formatEther(BigInt(call.value)),
+                });
             }
+
+            // 递归提取更深层的调用
+            if (call.calls) {
+                call.calls.forEach(extractFromCalls);
+            }
+        };
+
+        // 处理 traces.calls 数组
+        if (traces.calls && Array.isArray(traces.calls)) {
+            traces.calls.forEach(extractFromCalls);
         }
 
         return transfers;
@@ -447,7 +566,6 @@ class TransactionSimulator {
         }
 
         console.log(`总计: ${transfers.length} 笔转账`);
-        console.log('==============================\n');
     }
 }
 
@@ -455,13 +573,20 @@ class TransactionSimulator {
 async function main() {
     const simulator = new TransactionSimulator(process.env.RPC_URL!);
 
-    // 示例 1: 模拟简单的 ETH 转账
-    console.log('=== 示例 1: 模拟 ETH 转账 ===\n');
-    const result1 = await simulator.simulateTransaction({
+    // 测试交易
+    const testTx: TransactionRequest = {
         from: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address, // Anvil 默认账户
         to: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address,
         value: BigInt('1000000000000000000'), // 1 ETH
-    });
+    };
+
+    console.log('=========================================');
+    console.log('测试交易模拟的三种方法');
+    console.log('=========================================\n');
+
+    // 方法 1: 基础模拟（只用快照、estimateGas、执行、分析收据）
+    console.log('=== 方法 1: 基础模拟 (Snapshot + Receipt) ===\n');
+    const result1 = await simulator.simulateTransactionBasic(testTx);
 
     if (result1.success) {
         console.log(`Gas 使用: ${result1.gasUsed}`);
@@ -470,18 +595,41 @@ async function main() {
         console.error(`模拟失败: ${result1.error}`);
     }
 
-    // 示例 2: 模拟 ERC20 转账（需要替换为实际的 ERC20 合约地址和调用数据）
-    // console.log('=== 示例 2: 模拟 ERC20 转账 ===\n');
-    // const result2 = await simulator.simulateTransaction({
-    //     from: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address,
-    //     to: '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address, // ERC20 合约地址
-    //     data: '0x...', // transfer 函数的调用数据
-    // });
+    console.log('\n');
 
-    // if (result2.success) {
-    //     console.log(`Gas 使用: ${result2.gasUsed}`);
-    //     simulator.formatTransfers(result2.transfers);
-    // }
+    // 方法 2: 使用 trace_transaction (Parity/Erigon 风格)
+    console.log('=== 方法 2: 使用 trace_transaction ===\n');
+    const result2 = await simulator.simulateTransactionWithTrace(testTx);
+
+    if (result2.success) {
+        console.log(`Gas 使用: ${result2.gasUsed}`);
+        simulator.formatTransfers(result2.transfers);
+    } else {
+        console.error(`模拟失败: ${result2.error}`);
+    }
+
+    console.log('\n');
+
+    // 方法 3: 使用 debug_traceTransaction (Geth 风格)
+    console.log('=== 方法 3: 使用 debug_traceTransaction ===\n');
+    const result3 = await simulator.simulateTransactionWithDebugTrace(testTx);
+
+    if (result3.success) {
+        console.log(`Gas 使用: ${result3.gasUsed}`);
+        simulator.formatTransfers(result3.transfers);
+    } else {
+        console.error(`模拟失败: ${result3.error}`);
+    }
+
+    console.log('\n=========================================');
+    console.log('测试完成');
+    console.log('=========================================');
+
+    // 注意：
+    // - 方法1：只分析收据和日志，可追踪顶层 ETH 转账 + ERC20/ERC721 转账
+    // - 方法2：使用 trace_transaction (Parity/Erigon) 追踪所有 ETH 转账（包括内部转账） + 日志中的 ERC20/ERC721 转账
+    // - 方法3：使用 debug_traceTransaction (Geth) 追踪所有 ETH 转账（包括内部转账） + 日志中的 ERC20/ERC721 转账
+    // - Anvil 默认支持这三种方法
 }
 
 // 运行示例
