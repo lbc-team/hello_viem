@@ -18,8 +18,8 @@ import ERC20_ABI from './abis/MyERC20.json' with { type: 'json' };
 import { privateKeyToAccount } from "viem/accounts";
 dotenv.config();
 
-const COUNTER_ADDRESS = "0x610178dA211FEF7D417bC0e6FeD39F05609AD788";
-const ERC20_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+const COUNTER_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+const ERC20_ADDRESS = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
 
 const main = async () => {
   // 创建一个公共客户端
@@ -86,24 +86,24 @@ const main = async () => {
     },
   });
 
-    // 读取合约 方法 1
-    const balance1 = formatEther(BigInt(await erc20Contract.read.balanceOf([
-      address.toString(),
-    ]) as string));
-    console.log(`方法 1 获取的余额是 ${address.toString()} is ${balance1}`);
-  
-    // 读取合约 方法 2
-    const balance = formatEther(
-      BigInt(
-        (await publicClient.readContract({
-          address: ERC20_ADDRESS,
-          abi: ERC20_ABI,
-          functionName: "balanceOf",
-          args: [address.toString()],
-        })) as string
-      )
-    );
-    console.log(`方法 2 获取的余额是 ${address.toString()} is ${balance}`);
+  // 读取合约 方法 1
+  const balance1 = formatEther(BigInt(await erc20Contract.read.balanceOf([
+    address.toString(),
+  ]) as string));
+  console.log(`方法 1 获取的余额是 ${address.toString()} is ${balance1}`);
+
+  // 读取合约 方法 2
+  const balance = formatEther(
+    BigInt(
+      (await publicClient.readContract({
+        address: ERC20_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [address.toString()],
+      })) as string
+    )
+  );
+  console.log(`方法 2 获取的余额是 ${address.toString()} is ${balance}`);
 
 
   const counterContract = getContract({
@@ -129,7 +129,7 @@ const main = async () => {
     functionName: 'increment',
     args: [],
   });
-  
+
 
   const number2 = await counterContract.read.number([]);
   console.log(` 调用 number 方法的 number is ${number2}`);
@@ -143,11 +143,12 @@ const main = async () => {
   // 等待交易被确认
   const receipt = await publicClient.waitForTransactionReceipt({ hash: tx });
   console.log(`交易状态: ${receipt.status === 'success' ? '成功' : '失败'}`);
-  // console.log(receipt.logs);
+  console.log(receipt.logs);
+
   // 从 receipt 中解析事件
   const transferLogs = await parseEventLogs({
     abi: ERC20_ABI,
-    eventName: 'Transfer', 
+    eventName: 'Transfer',
     logs: receipt.logs,
   });
 

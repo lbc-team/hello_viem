@@ -58,12 +58,13 @@ async function sendTransactionExample(): Promise<Hash> {
       chainId: foundry.id,
       type: 'eip1559' as const, // 使用 const 断言确保类型正确
       chain: foundry, // 添加 chain 参数
-      
+      // data: 0x....abi
+
       // EIP-1559 交易参数
       maxFeePerGas: gasPrice * 2n, // 最大总费用为当前 gas 价格的 2 倍
       maxPriorityFeePerGas: parseGwei('1.5'), // 最大小费
       gas: 21000n,   // gas limit
-      nonce: nonce
+      nonce: nonce,
     }
 
     // 或 自动 Gas 估算 及参数验证和补充
@@ -92,7 +93,7 @@ async function sendTransactionExample(): Promise<Hash> {
 
     // 发送交易  eth_sendRawTransaction
     const txHash = await publicClient.sendRawTransaction({
-        serializedTransaction: signedTx
+      serializedTransaction: signedTx
     })
     console.log('Transaction Hash:', txHash)
 

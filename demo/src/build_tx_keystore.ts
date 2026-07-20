@@ -24,7 +24,7 @@ async function sendTransactionWithKeystore(): Promise<Hash> {
     const keystoreContent = readFileSync(join(process.cwd(), keystorePath), 'utf-8')
     const keystore = JSON.parse(keystoreContent)
 
-    // 3. 使用 ethers.js 的 Wallet 来解密 keystore
+    // 3. 使用 viem.sh 的 Wallet 来解密 keystore
     const wallet = await Wallet.fromEncryptedJson(keystoreContent, keystorePassword)
     const privateKey = wallet.privateKey as `0x${string}`
 

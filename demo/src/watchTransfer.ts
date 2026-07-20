@@ -13,7 +13,7 @@ import ERC20_ABI from './abis/MyERC20.json' with { type: 'json' };
 
 dotenv.config();
 
-const ERC20_ADDRESS = "0x1613beB3B2C4f22Ee086B2b38C1476A3cE7f78E8";
+const ERC20_ADDRESS = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
 
 const main = async () => {
     // 创建公共客户端
@@ -41,12 +41,12 @@ const main = async () => {
         onLogs: (logs) => {
             logs.forEach((log) => {
                 if (log.args.value !== undefined) {
-                        console.log('\n检测到新的转账事件:');
-                        console.log(`从: ${log.args.from}`);
-                        console.log(`到: ${log.args.to}`);
-                        console.log(`金额: ${formatEther(log.args.value)}`);
-                        console.log(`交易哈希: ${log.transactionHash}`);
-                        console.log(`区块号: ${log.blockNumber}`);
+                    console.log('\n检测到新的转账事件:');
+                    console.log(`从: ${log.args.from}`);
+                    console.log(`到: ${log.args.to}`);
+                    console.log(`金额: ${formatEther(log.args.value)}`);
+                    console.log(`交易哈希: ${log.transactionHash}`);
+                    console.log(`区块号: ${log.blockNumber}`);
 
 
                     // insert sql

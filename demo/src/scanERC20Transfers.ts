@@ -45,14 +45,17 @@ const main = async () => {
         const logs = await publicClient.getLogs({
             fromBlock,
             toBlock,
-            // address: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
-            // event: parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)')
-            // event: TRANSFER_EVENT
-            // multiple events
-            events: parseAbi([
-                'event Approval(address indexed owner, address indexed spender, uint256 value)',
-                'event Transfer(address indexed from, address indexed to, uint256 value)'
-            ])
+            address: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+            event: parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)'),
+            // args: {
+            //     // from: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
+            //     // to: ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', '0x70997970c51812dc3a010c7d01b50e0d17dc79c8']
+            // },
+            // 如果需要同时监听多个事件，可以使用 events 而不是 event
+            // events: parseAbi([
+            //     'event Approval(address indexed owner, address indexed spender, uint256 value)',
+            //     'event Transfer(address indexed from, address indexed to, uint256 value)'
+            // ]),
         });
 
         console.log(`\n在区块 ${fromBlock} 到 ${toBlock} 之间找到 ${logs.length} 个事件`);
@@ -65,14 +68,10 @@ const main = async () => {
             console.log(`交易哈希: ${log.transactionHash}`);
             console.log(`区块号: ${log.blockNumber}`);
 
-            if (log.eventName === 'Transfer' && log.args.value !== undefined) {
+            if (log.args.value !== undefined) {
                 console.log(`从: ${log.args.from}`);
                 console.log(`到: ${log.args.to}`);
                 console.log(`金额: ${formatEther(log.args.value)}`);
-            } else if (log.eventName === 'Approval' && log.args.value !== undefined) {
-                console.log(`所有者: ${log.args.owner}`);
-                console.log(`授权给: ${log.args.spender}`);
-                console.log(`授权金额: ${formatEther(log.args.value)}`);
             }
         }
     } catch (error) {

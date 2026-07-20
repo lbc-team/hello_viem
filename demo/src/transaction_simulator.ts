@@ -31,13 +31,13 @@ dotenv.config();
 6. 返回结果
 ```
 
-### 使用的 RPC 方法
+### 使用的 RPC 方法(节点需启用 --http.api debug,trace )
 - `evm_snapshot` - 创建状态快照
 - `evm_revert` - 恢复到快照
 - `eth_sendTransaction` - 发送交易
 - `eth_getTransactionReceipt` - 获取交易回执
 - `eth_estimateGas` - 估算 gas
-- `trace_transaction` - 追踪交易, Trace 模块（Parity/Erigon 风格）的接口 
+- `trace_transaction` - 追踪交易, Trace ( Nethermind /Erigon 风格）的接口 
 - `trace_block` -  Trace 模块的接口（未使用）
 - `debug_traceTransaction` - 调试追踪 , Geth 风格的调试接口，对一笔已上链交易 进行详细的 EVM 执行追踪,  输出：gas 消耗、存储变化（storage diff）、内部调用的 call tree
 - `debug_traceCall` - Geth 调试接口，用于追踪未上链的模拟调用（call 模拟）
@@ -861,7 +861,7 @@ async function main() {
     const simulator = new TransactionSimulator(process.env.RPC_URL!);
 
     // 测试交易
-    const testTx = getTestTx2();
+    const testTx = getTestTx3();
 
     console.log('=========================================');
     console.log('测试交易模拟的四种方法');
