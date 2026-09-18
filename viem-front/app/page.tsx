@@ -6,7 +6,7 @@ import { foundry } from 'viem/chains';
 import Counter_ABI from './contracts/Counter.json';
 
 // Counter 合约地址
-const COUNTER_ADDRESS = "0x7148E9A2d539A99a66f1bd591E4E20cA35a08eD5";
+const COUNTER_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
 export default function Home() {
   const [balance, setBalance] = useState<string>('0');
@@ -30,7 +30,7 @@ export default function Home() {
     try {
       const [address] = await window.ethereum.request({ method: 'eth_requestAccounts' });
       const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-      
+
       setAddress(address as `0x${string}`);
       setChainId(Number(chainId));
       setIsConnected(true);
@@ -64,7 +64,7 @@ export default function Home() {
   // 获取 Counter 合约的数值
   const fetchCounterNumber = async () => {
     if (!address) return;
-    
+
     const counterContract = getContract({
       address: COUNTER_ADDRESS,
       abi: Counter_ABI,
@@ -78,7 +78,7 @@ export default function Home() {
   // 调用 increment 函数
   const handleIncrement = async () => {
     if (!address) return;
-    
+
     const walletClient = createWalletClient({
       chain: foundry,
       transport: custom(window.ethereum),
@@ -102,7 +102,7 @@ export default function Home() {
   useEffect(() => {
     const fetchBalance = async () => {
       if (!address) return;
-      
+
       const balance = await publicClient.getBalance({
         address: address,
       });
@@ -119,7 +119,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8">
       <h1 className="text-3xl font-bold mb-8">Simple Viem Demo</h1>
-      
+
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
         <div className="mb-4">
           <a
@@ -129,7 +129,7 @@ export default function Home() {
             前往 SIWE 登录演示
           </a>
         </div>
-        
+
         {!isConnected ? (
           <button
             onClick={connectWallet}

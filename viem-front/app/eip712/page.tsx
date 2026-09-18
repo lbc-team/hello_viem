@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  createWalletClient, 
-  createPublicClient, 
-  http, 
+import {
+  createWalletClient,
+  createPublicClient,
+  http,
   parseEther,
   type Hash,
   type Address,
@@ -14,7 +14,7 @@ import {
 import { foundry } from 'viem/chains';
 import { EIP712VerifierABI } from '@/types/EIP712Verifier';
 
-const CONTRACT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address;
+const CONTRACT_ADDRESS = '0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f' as Address;
 
 export default function EIP712Demo() {
   const [toAddress, setToAddress] = useState('');
@@ -80,7 +80,7 @@ export default function EIP712Demo() {
         verifyingContract: CONTRACT_ADDRESS,
       };
 
-    // 合约中的 SEND_TYPEHASH 与前端定义的 types 结构一致
+      // 合约中的 SEND_TYPEHASH 与前端定义的 types 结构一致
       const types = {
         Send: [  //  primaryType, 签名时, 消息的标题会显示 primaryType 的名称
           { name: 'to', type: 'address' },
@@ -141,7 +141,7 @@ export default function EIP712Demo() {
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">EIP712 Viem 签名演示</h1>
-      
+
       {!account ? (
         <button
           onClick={connectWallet}
@@ -180,7 +180,7 @@ export default function EIP712Demo() {
             >
               签名
             </button>
-            
+
             <button
               onClick={handleVerify}
               className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"

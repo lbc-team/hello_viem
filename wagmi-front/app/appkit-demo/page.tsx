@@ -16,7 +16,7 @@ import Counter_ABI from '../contracts/Counter.json';
 import { useAppKit } from '@reown/appkit/react';
 
 // Counter 合约地址
-const COUNTER_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+const COUNTER_ADDRESS = "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853";
 
 function AppkitDemoContent() {
     const { address, isConnected } = useAccount();
@@ -87,7 +87,7 @@ function AppkitDemoContent() {
                             <p className="font-mono">
                                 {currentChain?.name || '未知网络'} (Chain ID: {chainId})
                             </p>
-                            <button 
+                            <button
                                 onClick={() => open({ view: 'Networks' })}
                                 className="mt-2 bg-purple-500 text-white py-1 px-3 rounded hover:bg-purple-600 transition-colors"
                             >
@@ -107,8 +107,8 @@ function AppkitDemoContent() {
                                 onClick={handleIncrement}
                                 disabled={isPending}
                                 className={`mt-2 w-full py-2 px-4 rounded transition-colors ${isPending
-                                        ? 'bg-gray-400 cursor-not-allowed'
-                                        : 'bg-green-500 hover:bg-green-600 text-white'
+                                    ? 'bg-gray-400 cursor-not-allowed'
+                                    : 'bg-green-500 hover:bg-green-600 text-white'
                                     }`}
                             >
                                 {isPending ? '处理中...' : '增加计数'}

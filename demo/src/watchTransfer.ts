@@ -13,7 +13,7 @@ import ERC20_ABI from './abis/MyERC20.json' with { type: 'json' };
 
 dotenv.config();
 
-const ERC20_ADDRESS = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
+const ERC20_ADDRESS = "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318";
 
 const main = async () => {
     // 创建公共客户端

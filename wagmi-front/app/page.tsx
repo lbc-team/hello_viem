@@ -1,22 +1,25 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  useAccount, 
-  useConnect, 
-  useDisconnect, 
-  useChainId, 
-  useChains, 
-  useReadContract, 
+import {
+  useAccount,
+  useConnect,
+  useDisconnect,
+  useChainId,
+  useChains,
+  useReadContract,
   useWriteContract,
   useClient,
   useBalance
 } from 'wagmi';
-import { injected } from 'wagmi/connectors';
+
+import { injected, walletConnect } from 'wagmi/connectors';
 import Counter_ABI from './contracts/Counter.json';
 
+const projectId = '95e25ba0eac827fb18d92ddd44e6fa67';
+
 // Counter 合约地址
-const COUNTER_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+const COUNTER_ADDRESS = "0x851356ae760d987E095750cCeb3bC6014560891C";
 
 export default function Home() {
   const { address, isConnected } = useAccount();
@@ -26,9 +29,12 @@ export default function Home() {
   const chains = useChains();
   const currentChain = chains.find(chain => chain.id === chainId);
 
-  // 使用 useBalance 获取余额
+  // 使用 useBalance 获取余额（每秒自动刷新）
   const { data: balance } = useBalance({
     address,
+    query: {
+      refetchInterval: 1000,
+    },
   });
 
   // 使用 useReadContract 读取合约数据
@@ -39,7 +45,7 @@ export default function Home() {
   });
 
   // 使用 useWriteContract 写入合约数据
-  const { 
+  const {
     writeContract,
     isPending,
     data: hash,
@@ -66,15 +72,23 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8">
       <h1 className="text-3xl font-bold mb-8">Simple Wagmi Demo</h1>
-      
+
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
         {!isConnected ? (
-          <button
-            onClick={() => connect({ connector: injected() })}
-            className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors"
-          >
-            连接 MetaMask
-          </button>
+          <div className="space-y-3">
+            <button
+              onClick={() => connect({ connector: injected() })}
+              className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors"
+            >
+              连接 MetaMask
+            </button>
+            <button
+              onClick={() => connect({ connector: walletConnect({ projectId }) })}
+              className="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700 transition-colors"
+            >
+              连接 WalletConnect
+            </button>
+          </div>
         ) : (
           <div className="space-y-4">
             <div className="text-center">
@@ -99,11 +113,10 @@ export default function Home() {
               <button
                 onClick={handleIncrement}
                 disabled={isPending}
-                className={`mt-2 w-full py-2 px-4 rounded transition-colors ${
-                  isPending 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-green-500 hover:bg-green-600 text-white'
-                }`}
+                className={`mt-2 w-full py-2 px-4 rounded transition-colors ${isPending
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-green-500 hover:bg-green-600 text-white'
+                  }`}
               >
                 {isPending ? '处理中...' : '增加计数'}
               </button>

@@ -19,7 +19,7 @@ import { privateKeyToAccount } from "viem/accounts";
 dotenv.config();
 
 const COUNTER_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-const ERC20_ADDRESS = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
+const ERC20_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
 const main = async () => {
   // 创建一个公共客户端
@@ -58,7 +58,7 @@ const main = async () => {
   const hash1 = await walletClient.sendTransaction({
     account,
     to: "0x01BF49D75f2b73A2FDEFa7664AEF22C86c5Be3df",
-    value: parseEther("0.001"),
+    value: parseEther("1"),
   });
 
   console.log(` 默认 gas 和 nonce 的 transaction hash is ${hash1}`);
@@ -90,7 +90,7 @@ const main = async () => {
   const balance1 = formatEther(BigInt(await erc20Contract.read.balanceOf([
     address.toString(),
   ]) as string));
-  console.log(`方法 1 获取的余额是 ${address.toString()} is ${balance1}`);
+  console.log(`方法 1 获取的Token余额是 ${address.toString()} is ${balance1}`);
 
   // 读取合约 方法 2
   const balance = formatEther(
@@ -103,7 +103,7 @@ const main = async () => {
       })) as string
     )
   );
-  console.log(`方法 2 获取的余额是 ${address.toString()} is ${balance}`);
+  console.log(`方法 2 获取的Token余额是 ${address.toString()} is ${balance}`);
 
 
   const counterContract = getContract({
@@ -115,34 +115,36 @@ const main = async () => {
     },
   });
 
-  // 写方法1
-  const hash = await counterContract.write.increment();
-  console.log(` 调用 increment 方法的 transaction hash is ${hash}`);
+  // // 写方法1
+  // const hash = await counterContract.write.increment();
+  // console.log(` 调用 increment 方法的 transaction hash is ${hash}`);
 
-  const number1 = await counterContract.read.number([]);
-  console.log(` 调用 number 方法的 number is ${number1}`);
+  // const number1 = await counterContract.read.number([]);
+  // console.log(` 调用 number 方法的 number is ${number1}`);
 
-  // 写方法2
-  await walletClient.writeContract({
-    address: COUNTER_ADDRESS,
-    abi: Counter_ABI,
-    functionName: 'increment',
-    args: [],
-  });
+  // // 写方法2
+  // await walletClient.writeContract({
+  //   address: COUNTER_ADDRESS,
+  //   abi: Counter_ABI,
+  //   functionName: 'increment',
+  //   args: [],
+  // });
 
 
-  const number2 = await counterContract.read.number([]);
-  console.log(` 调用 number 方法的 number is ${number2}`);
+  // const number2 = await counterContract.read.number([]);
+  // console.log(` 调用 number 方法的 number is ${number2}`);
 
   const tx = await erc20Contract.write.transfer([
     "0x01BF49D75f2b73A2FDEFa7664AEF22C86c5Be3df",
-    parseEther("1"),
+    parseEther("0.1"), // 1 -> 1 * 10 ^18
   ]);
   console.log(` 调用 transfer 方法的 transaction hash is ${tx}`);
+
 
   // 等待交易被确认
   const receipt = await publicClient.waitForTransactionReceipt({ hash: tx });
   console.log(`交易状态: ${receipt.status === 'success' ? '成功' : '失败'}`);
+  console.log("打印完整的日志");
   console.log(receipt.logs);
 
   // 从 receipt 中解析事件
