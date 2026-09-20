@@ -19,7 +19,7 @@ import Counter_ABI from './contracts/Counter.json';
 const projectId = '95e25ba0eac827fb18d92ddd44e6fa67';
 
 // Counter 合约地址
-const COUNTER_ADDRESS = "0x851356ae760d987E095750cCeb3bC6014560891C";
+const COUNTER_ADDRESS = "0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE";
 
 export default function Home() {
   const { address, isConnected } = useAccount();
