@@ -16,6 +16,7 @@
     "build_self_7702_tx": "tsc && node dist/build_self_7702_tx.js",
     "keystore_demo": "node src/keystore_demo.js",
     "create_by_raw": "node src/create_by_raw.js",
+    "create_by_mnemonic": "node src/create_by_mnemonic.js",
     "sign_verify": "tsc && node dist/sign_verify.js",
     "simulator": "tsc && node dist/transaction_simulator.js",
     "simulator_example": "tsc && node dist/simulator_example.js"
