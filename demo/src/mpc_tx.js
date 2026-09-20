@@ -1,3 +1,7 @@
+/**
+ * 注：本文件实现的是基于 Shamir's Secret Sharing (SSS) 的私钥恢复签名方案。
+ * 流程：分片静态存储 -> 签名时聚合分片在内存中【重构完整私钥】-> 使用私钥完成标准签名。
+ */
 import {
     http,
     parseEther,
