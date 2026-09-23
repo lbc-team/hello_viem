@@ -14,7 +14,7 @@ import {
 import { foundry } from 'viem/chains';
 import { EIP712VerifierABI } from '@/types/EIP712Verifier';
 
-const CONTRACT_ADDRESS = '0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f' as Address;
+const CONTRACT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address;
 
 export default function EIP712Demo() {
   const [toAddress, setToAddress] = useState('');
