@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { 
   createPublicClient, 
   createWalletClient, 
@@ -361,6 +362,12 @@ export default function TokenBankPage() {
           🏦
         </div>
         <span className="text-xl font-bold text-gray-900 tracking-tight">TokenBank</span>
+        <Link
+          href="/permit"
+          className="ml-1 text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-medium px-2 py-0.5 rounded-full transition border border-indigo-200"
+        >
+          🔑 ERC-7715
+        </Link>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">

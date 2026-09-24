@@ -121,12 +121,24 @@ export default function Home() {
       <h1 className="text-3xl font-bold mb-8">Simple Viem Demo</h1>
 
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
-        <div className="mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+          <a
+            href="/tokenbank"
+            className="block w-full bg-blue-600 text-white py-2 px-3 rounded hover:bg-blue-700 transition-colors text-center text-sm font-medium"
+          >
+            前往 TokenBank
+          </a>
+          <a
+            href="/permit"
+            className="block w-full bg-indigo-600 text-white py-2 px-3 rounded hover:bg-indigo-700 transition-colors text-center text-sm font-medium"
+          >
+            前往 ERC-7715 Permit
+          </a>
           <a
             href="/siwe"
-            className="block w-full bg-purple-500 text-white py-2 px-4 rounded hover:bg-purple-600 transition-colors text-center"
+            className="block w-full bg-purple-500 text-white py-2 px-3 rounded hover:bg-purple-600 transition-colors text-center text-sm font-medium"
           >
-            前往 SIWE 登录演示
+            前往 SIWE 登录
           </a>
         </div>
 
