@@ -7,9 +7,9 @@ import {
   createWalletClient, 
   http, 
   parseEther, 
-  formatEther,
+  formatEther, 
   type Address, 
-  custom
+  custom 
 } from 'viem';
 import { sepolia, foundry, mainnet, type Chain } from 'viem/chains';
 import TokenBankABI from '../contracts/TokenBank.json';
@@ -18,6 +18,25 @@ import {
   sendApproveAndDepositCalls, 
   waitForBatchStatus 
 } from './sendCalls';
+
+declare global {
+  interface Window {
+    phantom?: {
+      ethereum?: any;
+      solana?: any;
+    };
+  }
+}
+
+interface EIP6963ProviderDetail {
+  info: {
+    uuid: string;
+    name: string;
+    icon: string;
+    rdns: string;
+  };
+  provider: any;
+}
 
 const TOKEN_BANK_ADDRESS = '0x18aBd72cEB1a9b70BE4fA583785330dAE7a1588b' as Address;
 const ERC20_TOKEN_ADDRESS = '0xA682489b1bFc28185489B9Bc2b53960EAeEA1a32' as Address;
@@ -42,6 +61,11 @@ const CHAIN_NAMES: Record<number, string> = {
 export default function TokenBankPage() {
   const [address, setAddress] = useState<Address | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
+  const [activeProvider, setActiveProvider] = useState<any>(null);
+  const [activeWalletName, setActiveWalletName] = useState<string>('');
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [injectedProviders, setInjectedProviders] = useState<EIP6963ProviderDetail[]>([]);
+
   const [copied, setCopied] = useState(false);
   const [amount, setAmount] = useState('');
   const [tokenBalance, setTokenBalance] = useState<bigint>(BigInt(0));
@@ -54,111 +78,203 @@ export default function TokenBankPage() {
   const [successMsg, setSuccessMsg] = useState<string>('');
   const [error, setError] = useState<string>('');
 
-  // 动态创建公共客户端：优先使用 window.ethereum (custom transport)，
-  // 这样公共读取操作 (readContract/getBalance) 会直接走钱包当前所连接的网络（如 Sepolia），
-  // 不会错误地请求硬编码的本地 127.0.0.1:8545
+  // 动态创建公共客户端：优先走当前激活钱包 (activeProvider) 的 custom transport
   const publicClient = useMemo(() => {
     const chain = (chainId && SUPPORTED_CHAINS[chainId]) || sepolia;
-    if (typeof window !== 'undefined' && window.ethereum) {
+    if (activeProvider) {
       return createPublicClient({
         chain,
-        transport: custom(window.ethereum!)
+        transport: custom(activeProvider),
       });
     }
     return createPublicClient({
       chain,
-      transport: http()
+      transport: http(),
     });
-  }, [chainId]);
+  }, [chainId, activeProvider]);
 
   // 创建钱包客户端
   const [walletClient, setWalletClient] = useState<any>(null);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.ethereum) {
-      // 先获取当前网络 Chain ID
-      window.ethereum
-        .request({ method: 'eth_chainId' })
-        .then((hexChainId: any) => {
-          const currentChainId = parseInt(hexChainId, 16);
-          setChainId(currentChainId);
-
-          const chain = SUPPORTED_CHAINS[currentChainId] || sepolia;
-          const client = createWalletClient({
-            chain,
-            transport: custom(window.ethereum!)
-          });
-          setWalletClient(client);
-
-          // 自动检查已连接账户
-          client.getAddresses().then((addrs) => {
-            if (addrs && addrs.length > 0) {
-              setAddress(addrs[0]);
-            }
-          }).catch(console.error);
-        })
-        .catch(console.error);
-
-      const handleAccountsChanged = (accounts: string[]) => {
-        if (accounts.length === 0) {
-          setAddress(null);
-        } else {
-          setAddress(accounts[0] as Address);
-        }
-      };
-
-      const handleChainChanged = (hexChainId: string) => {
-        const newChainId = parseInt(hexChainId, 16);
-        setChainId(newChainId);
-        const chain = SUPPORTED_CHAINS[newChainId] || sepolia;
-        const newClient = createWalletClient({
-          chain,
-          transport: custom(window.ethereum!)
-        });
-        setWalletClient(newClient);
-      };
-
-      window.ethereum.on?.('accountsChanged', handleAccountsChanged);
-      window.ethereum.on?.('chainChanged', handleChainChanged);
-
-      return () => {
-        window.ethereum?.removeListener?.('accountsChanged', handleAccountsChanged);
-        window.ethereum?.removeListener?.('chainChanged', handleChainChanged);
-      };
+  // 检测 Phantom Provider
+  const getPhantomProvider = () => {
+    if (typeof window === 'undefined') return null;
+    if (window.phantom?.ethereum) return window.phantom.ethereum;
+    if ((window.ethereum as any)?.isPhantom) return window.ethereum;
+    const providers = (window.ethereum as any)?.providers;
+    if (Array.isArray(providers)) {
+      const p = providers.find((item: any) => item.isPhantom);
+      if (p) return p;
     }
+    const eip6963Phantom = injectedProviders.find(
+      (p) => p.info.rdns === 'app.phantom' || p.info.name.toLowerCase().includes('phantom')
+    );
+    if (eip6963Phantom) return eip6963Phantom.provider;
+    return null;
+  };
+
+  // 检测 MetaMask Provider
+  const getMetaMaskProvider = () => {
+    if (typeof window === 'undefined') return null;
+    const providers = (window.ethereum as any)?.providers;
+    if (Array.isArray(providers)) {
+      const mm = providers.find((item: any) => item.isMetaMask && !item.isPhantom);
+      if (mm) return mm;
+    }
+    if ((window.ethereum as any)?.isMetaMask && !(window.ethereum as any)?.isPhantom) {
+      return window.ethereum;
+    }
+    const eip6963MM = injectedProviders.find(
+      (p) => p.info.rdns === 'io.metamask' || p.info.name.toLowerCase().includes('metamask')
+    );
+    if (eip6963MM) return eip6963MM.provider;
+    if (window.ethereum && !(window.ethereum as any)?.isPhantom) return window.ethereum;
+    return null;
+  };
+
+  // 监听 EIP-6963 钱包发现
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleAnnouncement = (event: any) => {
+      if (event?.detail) {
+        setInjectedProviders((prev) => {
+          if (prev.some((p) => p.info.uuid === event.detail.info.uuid)) return prev;
+          return [...prev, event.detail];
+        });
+      }
+    };
+
+    window.addEventListener('eip6963:announceProvider', handleAnnouncement);
+    window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+    // 尝试根据历史偏好自动重连
+    const savedType = localStorage.getItem('tokenbank_wallet_type');
+    const timer = setTimeout(() => {
+      let p: any = null;
+      let name = '';
+      if (savedType === 'phantom') {
+        p = getPhantomProvider();
+        name = 'Phantom';
+      } else if (savedType === 'metamask') {
+        p = getMetaMaskProvider();
+        name = 'MetaMask';
+      } else if (savedType) {
+        const found = injectedProviders.find((item) => item.info.rdns === savedType);
+        if (found) {
+          p = found.provider;
+          name = found.info.name;
+        }
+      }
+
+      if (p) {
+        p.request({ method: 'eth_accounts' })
+          .then((accounts: string[]) => {
+            if (accounts && accounts.length > 0) {
+              connectWithProvider(p, name, savedType || 'wallet');
+            }
+          })
+          .catch(() => {});
+      }
+    }, 400);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('eip6963:announceProvider', handleAnnouncement);
+    };
   }, []);
 
-  // 连接钱包
-  const connectWallet = async () => {
-    if (typeof window === 'undefined' || !window.ethereum) {
-      setError('未检测到以太坊钱包扩展，请确保已安装 MetaMask');
-      return;
-    }
+  // 绑定当前激活 Provider 的事件监听
+  useEffect(() => {
+    if (!activeProvider) return;
 
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length === 0) {
+        setAddress(null);
+      } else {
+        setAddress(accounts[0] as Address);
+      }
+    };
+
+    const handleChainChanged = (hexChainId: string) => {
+      const newChainId = parseInt(hexChainId, 16);
+      setChainId(newChainId);
+      const chain = SUPPORTED_CHAINS[newChainId] || sepolia;
+      const newClient = createWalletClient({
+        chain,
+        transport: custom(activeProvider),
+      });
+      setWalletClient(newClient);
+    };
+
+    activeProvider.on?.('accountsChanged', handleAccountsChanged);
+    activeProvider.on?.('chainChanged', handleChainChanged);
+
+    return () => {
+      activeProvider.removeListener?.('accountsChanged', handleAccountsChanged);
+      activeProvider.removeListener?.('chainChanged', handleChainChanged);
+    };
+  }, [activeProvider]);
+
+  // 底层连接逻辑
+  const connectWithProvider = async (provider: any, walletName: string, walletTypeKey: string) => {
     try {
       setError('');
-      const hexChainId = await window.ethereum.request({ method: 'eth_chainId' });
+      const hexChainId = await provider.request({ method: 'eth_chainId' });
       const currentChainId = parseInt(hexChainId as string, 16);
       setChainId(currentChainId);
 
       const chain = SUPPORTED_CHAINS[currentChainId] || sepolia;
       const client = createWalletClient({
         chain,
-        transport: custom(window.ethereum!)
+        transport: custom(provider),
       });
       setWalletClient(client);
 
       const [addr] = await client.requestAddresses();
       setAddress(addr);
-    } catch (error) {
-      console.error('连接钱包错误:', error);
-      setError('连接钱包失败，请确保已安装 MetaMask 并解锁');
+      setActiveProvider(provider);
+      setActiveWalletName(walletName);
+      setIsWalletModalOpen(false);
+      localStorage.setItem('tokenbank_wallet_type', walletTypeKey);
+    } catch (err: any) {
+      console.error('连接钱包错误:', err);
+      setError(`连接 ${walletName} 失败: ${err?.message || '用户取消或钱包未解锁'}`);
+    }
+  };
+
+  // 用户点击指定钱包按钮进行连接
+  const handleSelectWallet = (type: 'phantom' | 'metamask' | string, customDetail?: EIP6963ProviderDetail) => {
+    if (customDetail) {
+      connectWithProvider(customDetail.provider, customDetail.info.name, customDetail.info.rdns);
+      return;
+    }
+
+    if (type === 'phantom') {
+      const p = getPhantomProvider();
+      if (!p) {
+        setError('未检测到 Phantom 钱包扩展。请先安装 Phantom 钱包或在浏览器扩展中开启。');
+        window.open('https://phantom.app/', '_blank');
+        return;
+      }
+      connectWithProvider(p, 'Phantom', 'phantom');
+    } else if (type === 'metamask') {
+      const p = getMetaMaskProvider();
+      if (!p) {
+        setError('未检测到 MetaMask 钱包扩展。请先安装 MetaMask 钱包。');
+        window.open('https://metamask.io/download/', '_blank');
+        return;
+      }
+      connectWithProvider(p, 'MetaMask', 'metamask');
     }
   };
 
   // 断开钱包连接状态
   const disconnectWallet = () => {
     setAddress(null);
+    setActiveProvider(null);
+    setActiveWalletName('');
+    localStorage.removeItem('tokenbank_wallet_type');
   };
 
   // 复制地址
@@ -225,7 +341,7 @@ export default function TokenBankPage() {
     }
   }, [address, chainId, publicClient]);
 
-  // 新方式: 利用 EIP-5792 sendCalls 封装 approve 和 deposit 调用
+  // 新方式: 利用 EIP-5792 sendCalls 封装 approve 和 deposit 调用 (使用 atomicRequired: true)
   const handleSendCallsApproveAndDeposit = async () => {
     if (!walletClient || !address || !amount) {
       setError('请先连接钱包并输入有效金额');
@@ -238,7 +354,7 @@ export default function TokenBankPage() {
       setSuccessMsg('');
       setCallBatchId('');
 
-      // 封装调用: 同时发送 approve 与 deposit 批次
+      // 封装调用: 同时发送 approve 与 deposit 批次 (已配置 forceAtomic: true 对应 atomicRequired: true)
       const result = await sendApproveAndDepositCalls({
         walletClient,
         account: address,
@@ -265,7 +381,7 @@ export default function TokenBankPage() {
         msg.includes('-32601')
       ) {
         setError(
-          '当前钱包暂未支持 EIP-5792 (wallet_sendCalls)。提示：标准 MetaMask 需在支持 5792 的版本/智能钱包（如 MetaMask Flask、Coinbase Smart Wallet 或 AA 智能账户）下使用；您也可以使用下方的传统分步方式操作。'
+          `当前钱包 (${activeWalletName || '当前插件'}) 暂未支持 EIP-5792 (wallet_sendCalls)。如需体验原子批处理，请使用支持 5792 的智能账户钱包；您也可以直接使用下方的传统分步方式操作。`
         );
       } else {
         setError(`sendCalls 错误: ${msg}`);
@@ -275,7 +391,7 @@ export default function TokenBankPage() {
     }
   };
 
-  // 处理授权
+  // 处理普通授权
   const handleApprove = async () => {
     if (!walletClient || !address || !amount) return;
 
@@ -386,10 +502,18 @@ export default function TokenBankPage() {
         {/* 钱包状态 */}
         {address ? (
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full shadow-xs text-xs font-mono text-gray-800">
-            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            {/* 钱包来源标识 (Phantom / MetaMask) */}
+            <span className={`flex items-center gap-1 font-sans font-medium px-2 py-0.5 rounded-full text-[11px] ${
+              activeWalletName === 'Phantom'
+                ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                : 'bg-orange-100 text-orange-800 border border-orange-200'
+            }`}>
+              {activeWalletName === 'Phantom' ? '👻 Phantom' : '🦊 MetaMask'}
+            </span>
+
             <button
               onClick={copyAddress}
-              className="hover:text-blue-600 transition flex items-center gap-1"
+              className="hover:text-blue-600 transition flex items-center gap-1 ml-1"
               title="点击复制完整地址"
             >
               <span>{formatAddress(address)}</span>
@@ -397,9 +521,20 @@ export default function TokenBankPage() {
                 {copied ? '已复制' : '复制'}
               </span>
             </button>
+
+            {/* 切换钱包 */}
+            <button
+              onClick={() => setIsWalletModalOpen(true)}
+              className="text-gray-400 hover:text-blue-600 transition font-sans text-xs px-1"
+              title="切换钱包"
+            >
+              🔄
+            </button>
+
+            {/* 断开连接 */}
             <button
               onClick={disconnectWallet}
-              className="ml-1 text-gray-400 hover:text-red-500 transition font-sans text-xs"
+              className="text-gray-400 hover:text-red-500 transition font-sans text-xs px-1"
               title="断开连接"
             >
               ✕
@@ -407,15 +542,132 @@ export default function TokenBankPage() {
           </div>
         ) : (
           <button
-            onClick={connectWallet}
-            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-xs text-xs font-medium transition"
+            onClick={() => setIsWalletModalOpen(true)}
+            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-xs text-xs font-medium transition flex items-center gap-1.5"
           >
-            连接钱包
+            <span>连接钱包</span>
           </button>
         )}
       </div>
     </div>
   );
+
+  // 钱包选择弹窗
+  const WalletModal = () => {
+    if (!isWalletModalOpen) return null;
+
+    const phantomAvailable = !!getPhantomProvider();
+    const metaMaskAvailable = !!getMetaMaskProvider();
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+        <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 border border-gray-100 animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">
+            <h3 className="text-lg font-bold text-gray-900">选择连接的钱包</h3>
+            <button
+              onClick={() => setIsWalletModalOpen(false)}
+              className="text-gray-400 hover:text-gray-600 text-lg w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {/* Phantom 钱包 */}
+            <button
+              onClick={() => handleSelectWallet('phantom')}
+              className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition ${
+                activeWalletName === 'Phantom'
+                  ? 'border-purple-500 bg-purple-50/60 ring-2 ring-purple-200'
+                  : 'border-gray-200 hover:border-purple-400 hover:bg-purple-50/30'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-xl">
+                  👻
+                </span>
+                <div className="text-left">
+                  <div className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                    Phantom
+                    {activeWalletName === 'Phantom' && (
+                      <span className="text-[10px] bg-purple-600 text-white px-1.5 py-0.2 rounded font-normal">当前连接</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {phantomAvailable ? '已就绪 (支持以太坊 EVM)' : '未检测到，点击前往官网安装'}
+                  </div>
+                </div>
+              </div>
+              <span className="text-xs font-medium text-purple-600">
+                {phantomAvailable ? '连接 ➔' : '下载 ↗'}
+              </span>
+            </button>
+
+            {/* MetaMask 钱包 */}
+            <button
+              onClick={() => handleSelectWallet('metamask')}
+              className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition ${
+                activeWalletName === 'MetaMask'
+                  ? 'border-orange-500 bg-orange-50/60 ring-2 ring-orange-200'
+                  : 'border-gray-200 hover:border-orange-400 hover:bg-orange-50/30'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-xl">
+                  🦊
+                </span>
+                <div className="text-left">
+                  <div className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                    MetaMask
+                    {activeWalletName === 'MetaMask' && (
+                      <span className="text-[10px] bg-orange-600 text-white px-1.5 py-0.2 rounded font-normal">当前连接</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {metaMaskAvailable ? '已就绪 (支持 7702 / 5792)' : '未检测到，点击前往官网安装'}
+                  </div>
+                </div>
+              </div>
+              <span className="text-xs font-medium text-orange-600">
+                {metaMaskAvailable ? '连接 ➔' : '下载 ↗'}
+              </span>
+            </button>
+
+            {/* 其它已检测到的 EIP-6963 钱包 */}
+            {injectedProviders
+              .filter(
+                (p) =>
+                  !p.info.name.toLowerCase().includes('phantom') &&
+                  !p.info.name.toLowerCase().includes('metamask')
+              )
+              .map((p) => (
+                <button
+                  key={p.info.uuid}
+                  onClick={() => handleSelectWallet(p.info.name, p)}
+                  className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50/30 transition"
+                >
+                  <div className="flex items-center gap-3">
+                    {p.info.icon ? (
+                      <img src={p.info.icon} alt={p.info.name} className="w-8 h-8 rounded-lg" />
+                    ) : (
+                      <span className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-base">
+                        💼
+                      </span>
+                    )}
+                    <span className="font-semibold text-gray-900 text-sm">{p.info.name}</span>
+                  </div>
+                  <span className="text-xs font-medium text-blue-600">连接 ➔</span>
+                </button>
+              ))}
+          </div>
+
+          <div className="mt-5 pt-3 border-t border-gray-100 text-center">
+            <span className="text-xs text-gray-400">支持 EIP-6963 多钱包并行共存</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (!address) {
     return (
@@ -427,15 +679,35 @@ export default function TokenBankPage() {
             🏦
           </div>
           <h2 className="text-xl font-bold mb-2 text-gray-900">请连接钱包</h2>
-          <p className="text-sm text-gray-500 mb-6">连接钱包以查看代币余额、授权额度并进行存款与取款操作</p>
+          <p className="text-sm text-gray-500 mb-6">
+            支持使用 <b>Phantom</b> 或 <b>MetaMask</b> 连接以查看代币余额并进行存款/取款
+          </p>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <button
+              onClick={() => handleSelectWallet('phantom')}
+              className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-2.5 px-4 rounded-xl font-medium transition shadow-xs"
+            >
+              <span>👻</span>
+              <span>Phantom</span>
+            </button>
+            <button
+              onClick={() => handleSelectWallet('metamask')}
+              className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white py-2.5 px-4 rounded-xl font-medium transition shadow-xs"
+            >
+              <span>🦊</span>
+              <span>MetaMask</span>
+            </button>
+          </div>
           <button
-            onClick={connectWallet}
-            className="w-full bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700 shadow-sm transition"
+            onClick={() => setIsWalletModalOpen(true)}
+            className="w-full text-xs text-gray-500 hover:text-gray-700 py-1"
           >
-            连接钱包
+            更多连接选项 / 钱包检测 ➔
           </button>
-          {error && <div className="mt-4 text-red-600 text-xs">{error}</div>}
+          {error && <div className="mt-4 text-red-600 text-xs bg-red-50 p-2.5 rounded-lg border border-red-100">{error}</div>}
         </div>
+
+        <WalletModal />
       </div>
     );
   }
@@ -446,7 +718,16 @@ export default function TokenBankPage() {
 
       <div className="w-full max-w-md space-y-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">账户信息</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-800">账户信息</h2>
+            <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
+              activeWalletName === 'Phantom'
+                ? 'bg-purple-100 text-purple-800'
+                : 'bg-orange-100 text-orange-800'
+            }`}>
+              {activeWalletName === 'Phantom' ? '👻 Phantom EVM' : '🦊 MetaMask'}
+            </span>
+          </div>
           <div className="space-y-2 text-sm text-gray-600">
             <p className="flex justify-between">
               <span>ERC20 代币余额:</span>
@@ -484,7 +765,7 @@ export default function TokenBankPage() {
                   ✨ 新方式: sendCalls
                 </span>
                 <span className="text-[11px] bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full font-medium">
-                  EIP-5792 批处理
+                  EIP-5792 批处理 (atomicRequired: true)
                 </span>
               </div>
               <p className="text-xs text-purple-700 mb-3 leading-relaxed">
@@ -549,6 +830,8 @@ export default function TokenBankPage() {
           </div>
         )}
       </div>
+
+      <WalletModal />
     </div>
   );
 }

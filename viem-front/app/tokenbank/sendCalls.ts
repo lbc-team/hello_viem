@@ -75,9 +75,10 @@ export async function sendApproveAndDepositCalls({
   const parsedAmount = typeof amount === 'string' ? parseEther(amount) : amount;
 
   // 使用 sendCalls (EIP-5792: wallet_sendCalls)
-  // 支持传入 { to, data } 或者 { to, abi, functionName, args }
+  // forceAtomic: true 对应 EIP-5792 的 atomicRequired: true
   const result = await sendCalls(walletClient, {
     account,
+    forceAtomic: true,
     calls: [
       {
         to: tokenAddress,
